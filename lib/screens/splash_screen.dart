@@ -192,36 +192,47 @@ class _SplashScreenState extends State<SplashScreen>
 
   Widget _logoBadge() {
     return Container(
-      width: 110,
-      height: 110,
+      width: 120,
+      height: 120,
       decoration: BoxDecoration(
-        color: Colors.white,
         shape: BoxShape.circle,
+        gradient: const RadialGradient(
+          colors: [Colors.white, Color(0xFFF0F0F0)],
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 40,
+            offset: const Offset(0, 16),
+          ),
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.4),
             blurRadius: 30,
-            offset: const Offset(0, 12),
+            spreadRadius: 4,
           ),
         ],
       ),
       child: Center(
-        child: CustomPaint(
-          size: const Size(60, 60),
-          painter: _HexPainter(),
-          child: const SizedBox(
-            width: 60,
-            height: 60,
-            child: Center(
-              child: Text(
-                'G',
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  height: 1,
+        child: ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.primaryLight, AppColors.primaryDark],
+          ).createShader(bounds),
+          child: const Text(
+            'Z',
+            style: TextStyle(
+              fontSize: 72,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              height: 1,
+              shadows: [
+                Shadow(
+                  color: Color(0x55000000),
+                  offset: Offset(3, 4),
+                  blurRadius: 8,
                 ),
-              ),
+              ],
             ),
           ),
         ),
@@ -242,20 +253,32 @@ class _SplashScreenState extends State<SplashScreen>
       children: [
         const Text('ZE', style: style),
         Container(
-          margin: const EdgeInsets.symmetric(horizontal: 2),
-          width: 38,
-          height: 38,
-          child: CustomPaint(
-            painter: _HexPainterWhite(),
-            child: const Center(
-              child: Text(
-                'G',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.primary,
-                  height: 1,
-                ),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [AppColors.primaryLight, AppColors.primaryDark],
+            ).createShader(bounds),
+            child: const Text(
+              'Z',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                height: 1,
               ),
             ),
           ),
@@ -314,44 +337,3 @@ class _RingPainter extends CustomPainter {
   bool shouldRepaint(covariant _RingPainter old) => old.t != t;
 }
 
-class _HexPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = _hexPath(size);
-    canvas.drawPath(
-      path,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primaryLight, AppColors.primaryDark],
-        ).createShader(Offset.zero & size),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
-}
-
-class _HexPainterWhite extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawPath(_hexPath(size), Paint()..color = Colors.white);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
-}
-
-Path _hexPath(Size size) {
-  final w = size.width;
-  final h = size.height;
-  return Path()
-    ..moveTo(w * 0.5, 0)
-    ..lineTo(w, h * 0.27)
-    ..lineTo(w, h * 0.73)
-    ..lineTo(w * 0.5, h)
-    ..lineTo(0, h * 0.73)
-    ..lineTo(0, h * 0.27)
-    ..close();
-}
