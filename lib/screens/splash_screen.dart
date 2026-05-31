@@ -273,7 +273,7 @@ class _SplashScreenState extends State<SplashScreen>
               colors: [AppColors.primaryLight, AppColors.primaryDark],
             ).createShader(bounds),
             child: const Text(
-              'Z',
+              'G',
               style: TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.w900,

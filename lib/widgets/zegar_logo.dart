@@ -45,7 +45,7 @@ class ZegarLogo extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Text(
-              'Z',
+              'G',
               style: TextStyle(
                 fontSize: fontSize * 0.72,
                 fontWeight: FontWeight.w900,
