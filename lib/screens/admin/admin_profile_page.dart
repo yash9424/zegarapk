@@ -72,7 +72,7 @@ class AdminProfilePage extends StatelessWidget {
                       icon: Icons.mail_outline,
                       iconColor: AppColors.textSecondary,
                       label: 'Work Email',
-                      value: MockData.adminEmail,
+                      value: user.email,
                     ),
                   ],
                 ),
@@ -99,11 +99,7 @@ class AdminProfilePage extends StatelessWidget {
           const Spacer(),
           const ZegarLogo(fontSize: 22),
           const Spacer(),
-          const UserAvatar(
-            name: MockData.adminName,
-            imageUrl: MockData.adminAvatar,
-            radius: 18,
-          ),
+          UserAvatar(name: user.name, radius: 18),
         ],
       ),
     );
@@ -116,9 +112,8 @@ class AdminProfilePage extends StatelessWidget {
         height: 116,
         child: Stack(
           children: [
-            const UserAvatar(
-              name: MockData.adminName,
-              imageUrl: MockData.adminAvatarLarge,
+            UserAvatar(
+              name: user.name,
               radius: 56,
               ring: true,
             ),

@@ -1,4 +1,8 @@
-/// Roles a logged-in user can have.
+import 'api_client.dart';
+
+/// Roles a logged-in user can have. The ZedGift API is an admin-level API
+/// (it returns org-wide employees and attendance), so a successful login
+/// lands in the admin panel.
 enum UserRole { admin, employee }
 
 class AuthUser {
@@ -26,82 +30,68 @@ class AuthResult {
   final String? error;
 }
 
-/// Mock authentication. Admin uses fixed credentials; any other
-/// non-empty email/password combination logs in as an employee.
+/// Authentication backed by the live ZedGift API (`POST /login`).
+///
+/// On success the Bearer token is stored in [ApiClient] so every later call
+/// is authenticated. The class name is kept as `MockAuth` so existing screens
+/// don't need import changes — but it is now a real network login.
 class MockAuth {
   MockAuth._();
   static final MockAuth instance = MockAuth._();
 
-  // Fixed admin credentials — share these to reach the Admin panel.
-  static const String adminEmail = 'admin@gmail.com';
-  static const String adminPassword = 'admin123';
-
-  // Fixed employee demo credentials.
-  static const String employeeEmail = 'user@gmail.com';
-  static const String employeePassword = 'user123';
-  static const String employeeName = 'Alexander Mercer';
+  AuthUser? currentUser;
 
   Future<AuthResult> login({
     required String email,
     required String password,
   }) async {
-    // Simulate a short network round-trip.
-    await Future<void>.delayed(const Duration(milliseconds: 900));
-
-    final id = email.trim().toLowerCase();
-
+    final id = email.trim();
     if (id.isEmpty || password.isEmpty) {
       return const AuthResult.failure('Please enter your credentials.');
     }
 
-    if (id == adminEmail && password == adminPassword) {
-      return const AuthResult.success(
-        AuthUser(
-          name: 'Administrator',
-          email: adminEmail,
-          role: UserRole.admin,
-        ),
+    try {
+      final data = await ApiClient.instance.postForm(
+        'login',
+        {'email': id, 'password': password},
+        auth: false,
       );
-    }
 
-    // Block anyone trying the admin email with the wrong password.
-    if (id == adminEmail) {
-      return const AuthResult.failure('Incorrect admin password.');
-    }
+      final map = (data as Map).cast<String, dynamic>();
+      final token = map['access_token'] as String?;
+      if (token == null || token.isEmpty) {
+        return const AuthResult.failure('Login failed. Please try again.');
+      }
+      ApiClient.instance.setToken(token);
 
-    if (id == employeeEmail && password == employeePassword) {
-      return const AuthResult.success(
-        AuthUser(
-          name: employeeName,
-          email: employeeEmail,
-          role: UserRole.employee,
-        ),
-      );
-    }
+      final user = (map['user'] as Map?)?.cast<String, dynamic>();
+      final name = _composeName(user) ?? id;
+      final mail = (user?['email'] as String?) ?? id;
 
-    if (id == employeeEmail) {
-      return const AuthResult.failure('Incorrect password.');
+      final authUser =
+          AuthUser(name: name, email: mail, role: UserRole.admin);
+      currentUser = authUser;
+      return AuthResult.success(authUser);
+    } on ApiException catch (e) {
+      return AuthResult.failure(e.message);
+    } catch (_) {
+      return const AuthResult.failure('Something went wrong. Please try again.');
     }
-
-    if (password.length < 4) {
-      return const AuthResult.failure('Password must be at least 4 characters.');
-    }
-
-    // Everything else is treated as a valid employee (mock data).
-    final display = _displayNameFor(id);
-    return AuthResult.success(
-      AuthUser(name: display, email: id, role: UserRole.employee),
-    );
   }
 
-  String _displayNameFor(String email) {
-    final local = email.contains('@') ? email.split('@').first : email;
-    final cleaned = local.replaceAll(RegExp(r'[._-]+'), ' ').trim();
-    if (cleaned.isEmpty) return 'Employee';
-    return cleaned
-        .split(' ')
-        .where((w) => w.isNotEmpty)
-        .map((w) => w[0].toUpperCase() + w.substring(1))
-        .join(' ');
+  void logout() {
+    ApiClient.instance.setToken(null);
+    currentUser = null;
+  }
+
+  String? _composeName(Map<String, dynamic>? user) {
+    if (user == null) return null;
+    final parts = [
+      user['first_name'],
+      user['father_name'],
+      user['last_name'],
+    ].map((e) => (e ?? '').toString().trim()).where((e) => e.isNotEmpty);
+    final joined = parts.join(' ').trim();
+    return joined.isEmpty ? null : joined;
   }
 }

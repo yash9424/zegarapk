@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../data/mock_data.dart';
+import '../../models/api_models.dart';
 import '../../services/mock_auth.dart';
+import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/zegar_logo.dart';
@@ -75,10 +77,7 @@ class AdminHomePage extends StatelessWidget {
                 const SizedBox(height: 26),
                 _attendanceHeader(context),
                 const SizedBox(height: 14),
-                for (final r in MockData.dailyAttendance.take(4)) ...[
-                  _AttendanceTile(record: r),
-                  const SizedBox(height: 12),
-                ],
+                const _DailyAttendanceLive(),
               ],
             ),
           ),
@@ -358,6 +357,66 @@ class _ActionCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Fetches today's recent punches and shows the latest few as tiles.
+class _DailyAttendanceLive extends StatefulWidget {
+  const _DailyAttendanceLive();
+
+  @override
+  State<_DailyAttendanceLive> createState() => _DailyAttendanceLiveState();
+}
+
+class _DailyAttendanceLiveState extends State<_DailyAttendanceLive> {
+  late Future<List<RecentPunch>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = ZedgiftApi.instance.recentPunches();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<RecentPunch>>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          );
+        }
+        if (snap.hasError) {
+          return Text('Could not load attendance.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13));
+        }
+        final punches = snap.data ?? const [];
+        if (punches.isEmpty) {
+          return Text('No punches today.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13));
+        }
+        final tiles = punches.take(4).map((p) => AttendanceRecord(
+              name: p.employeeName.isEmpty ? 'Unnamed' : p.employeeName,
+              avatarUrl: '',
+              location:
+                  p.departmentName.isEmpty ? '—' : p.departmentName,
+              time: p.isIn ? p.dutyIn : p.dutyOut,
+              clockedIn: p.isIn,
+            ));
+        return Column(
+          children: [
+            for (final r in tiles) ...[
+              _AttendanceTile(record: r),
+              const SizedBox(height: 12),
+            ],
+          ],
+        );
+      },
     );
   }
 }

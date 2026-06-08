@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../data/mock_data.dart';
+import '../../models/api_models.dart';
+import '../../services/mock_auth.dart';
+import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/zegar_logo.dart';
+import 'employee_detail_page.dart';
 import 'register_employee_page.dart';
 
 class EmployeeDirectoryPage extends StatefulWidget {
@@ -19,27 +22,63 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
   String _query = '';
   String? _category; // null = All
 
+  bool _loading = true;
+  String? _error;
+  List<EmployeeListItem> _all = const [];
+  List<NamedCount> _departments = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
   @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
   }
 
-  List<DirectoryEmployee> get _filtered {
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final results = await Future.wait([
+        ZedgiftApi.instance.employees(),
+        ZedgiftApi.instance.departments(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _all = results[0] as List<EmployeeListItem>;
+        _departments = results[1] as List<NamedCount>;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load employees. Pull to retry.';
+        _loading = false;
+      });
+    }
+  }
+
+  List<EmployeeListItem> get _filtered {
     final q = _query.trim().toLowerCase();
-    return MockData.directory.where((e) {
-      final matchesCat = _category == null || e.category == _category;
+    return _all.where((e) {
+      final matchesCat = _category == null || e.departmentName == _category;
       final matchesQuery = q.isEmpty ||
           e.name.toLowerCase().contains(q) ||
-          e.role.toLowerCase().contains(q) ||
-          e.team.toLowerCase().contains(q);
+          e.designationName.toLowerCase().contains(q) ||
+          e.departmentName.toLowerCase().contains(q) ||
+          e.customId.toString().contains(q);
       return matchesCat && matchesQuery;
     }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    final list = _filtered;
     return Scaffold(
       backgroundColor: AppColors.scaffold,
       floatingActionButton: Container(
@@ -77,24 +116,38 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
             const SizedBox(height: 12),
             _filterChips(),
             const SizedBox(height: 8),
-            Expanded(
-              child: list.isEmpty
-                  ? _emptyState()
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                      itemCount: list.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 12),
-                      itemBuilder: (_, i) => _EmployeeCard(employee: list[i]),
-                    ),
-            ),
+            Expanded(child: _listArea()),
           ],
         ),
       ),
     );
   }
 
+  Widget _listArea() {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+    if (_error != null) {
+      return _retryState(_error!);
+    }
+    final list = _filtered;
+    if (list.isEmpty) return _emptyState();
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        itemCount: list.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        itemBuilder: (_, i) => _EmployeeCard(employee: list[i]),
+      ),
+    );
+  }
+
   Widget _appBar() {
+    final name = MockAuth.instance.currentUser?.name ?? 'Admin';
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 16, 6),
       child: Row(
@@ -107,12 +160,7 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
           const Spacer(),
           const ZegarLogo(fontSize: 22),
           const Spacer(),
-          const UserAvatar(
-            name: MockData.adminName,
-            imageUrl: MockData.adminAvatar,
-            radius: 20,
-            ring: true,
-          ),
+          UserAvatar(name: name, radius: 20, ring: true),
         ],
       ),
     );
@@ -156,18 +204,23 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
   }
 
   Widget _filterChips() {
+    // "All" + each department from the API, with live counts.
+    final chips = <(String, String?, int)>[
+      ('All', null, _all.length),
+      for (final d in _departments) (d.name, d.name, d.count),
+    ];
     return SizedBox(
       height: 38,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: MockData.directoryFilters.length,
+        itemCount: chips.length,
         separatorBuilder: (context, index) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
-          final f = MockData.directoryFilters[i];
-          final selected = _category == f.category;
+          final (label, cat, count) = chips[i];
+          final selected = _category == cat;
           return GestureDetector(
-            onTap: () => setState(() => _category = f.category),
+            onTap: () => setState(() => _category = cat),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               alignment: Alignment.center,
@@ -179,7 +232,7 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
                 ),
               ),
               child: Text(
-                '${f.label} ${f.count}',
+                '$label $count',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -207,25 +260,55 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
     );
   }
 
+  Widget _retryState(String message) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off, size: 48, color: AppColors.textMuted),
+          const SizedBox(height: 12),
+          Text(message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+          const SizedBox(height: 14),
+          OutlinedButton(
+            onPressed: _load,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+            ),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _EmployeeCard extends StatelessWidget {
   const _EmployeeCard({required this.employee});
-  final DirectoryEmployee employee;
+  final EmployeeListItem employee;
 
   @override
   Widget build(BuildContext context) {
+    final role = employee.designationName.isEmpty
+        ? employee.typeName
+        : employee.designationName;
+    final team =
+        employee.departmentName.isEmpty ? '—' : employee.departmentName;
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            content: Text('${employee.name} — profile coming soon'),
-            behavior: SnackBarBehavior.floating,
-          )),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => EmployeeDetailPage(
+              employeeId: employee.id,
+              fallbackName: employee.name,
+            ),
+          ),
+        ),
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
@@ -247,7 +330,7 @@ class _EmployeeCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      employee.name,
+                      employee.name.isEmpty ? 'Unnamed' : employee.name,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -256,7 +339,7 @@ class _EmployeeCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      employee.role,
+                      'ID ${employee.customId} • $role',
                       style: TextStyle(
                           fontSize: 14, color: AppColors.textSecondary),
                     ),
@@ -266,12 +349,14 @@ class _EmployeeCard extends StatelessWidget {
                         const Icon(Icons.business,
                             size: 14, color: AppColors.primary),
                         const SizedBox(width: 5),
-                        Text(
-                          employee.team,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
+                        Expanded(
+                          child: Text(
+                            team,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
                           ),
                         ),
                       ],
@@ -293,11 +378,7 @@ class _EmployeeCard extends StatelessWidget {
       height: 50,
       child: Stack(
         children: [
-          UserAvatar(
-            name: employee.name,
-            imageUrl: employee.avatarUrl,
-            radius: 25,
-          ),
+          UserAvatar(name: employee.name, radius: 25),
           Positioned(
             right: 0,
             bottom: 0,
@@ -305,7 +386,7 @@ class _EmployeeCard extends StatelessWidget {
               width: 14,
               height: 14,
               decoration: BoxDecoration(
-                color: employee.online
+                color: employee.active
                     ? const Color(0xFF2BB673)
                     : AppColors.textMuted,
                 shape: BoxShape.circle,

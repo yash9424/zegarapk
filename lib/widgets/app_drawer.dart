@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../screens/login_screen.dart';
+import '../services/mock_auth.dart';
 import '../theme/app_theme.dart';
 import 'user_avatar.dart';
 
@@ -177,6 +178,7 @@ Future<void> confirmAndLogout(BuildContext context) async {
   );
 
   if (ok == true && context.mounted) {
+    MockAuth.instance.logout();
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
       (route) => false,

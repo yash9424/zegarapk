@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../data/mock_data.dart';
+import '../../models/api_models.dart';
+import '../../services/mock_auth.dart';
+import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/zegar_logo.dart';
@@ -13,18 +15,36 @@ class AdminAttendancePage extends StatefulWidget {
 }
 
 class _AdminAttendancePageState extends State<AdminAttendancePage> {
-  DateTime _selectedMonth = DateTime(2023, 10);
-  // The week strip shown in the design (Mon 23 → Sun 29), Tue selected.
-  static const _days = [
-    ('Mon', '23'),
-    ('Tue', '24'),
-    ('Wed', '25'),
-    ('Thu', '26'),
-    ('Fri', '27'),
-    ('Sat', '28'),
-    ('Sun', '29'),
-  ];
-  int _selectedDay = 1;
+  bool _loading = true;
+  String? _error;
+  List<RecentPunch> _punches = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final list = await ZedgiftApi.instance.recentPunches();
+      if (!mounted) return;
+      setState(() {
+        _punches = list;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load attendance.';
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,29 +53,65 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
       child: Column(
         children: [
           _appBar(),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-              children: [
-                _monthSelector(),
-                const SizedBox(height: 16),
-                _weekStrip(),
-                const SizedBox(height: 20),
-                _statRow(),
-                const SizedBox(height: 18),
-                for (final r in MockData.dayAttendance) ...[
-                  _AttendanceCard(record: r),
-                  const SizedBox(height: 14),
-                ],
-              ],
-            ),
-          ),
+          Expanded(child: _content()),
+        ],
+      ),
+    );
+  }
+
+  Widget _content() {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off, size: 48, color: AppColors.textMuted),
+            const SizedBox(height: 12),
+            Text(_error!,
+                style:
+                    TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+            const SizedBox(height: 14),
+            OutlinedButton(onPressed: _load, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
+    final inCount = _punches.where((p) => p.isIn).length;
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        children: [
+          _statRow(inCount, _punches.length),
+          const SizedBox(height: 18),
+          if (_punches.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 60),
+              child: Center(
+                child: Text('No punches today.',
+                    style: TextStyle(
+                        color: AppColors.textSecondary, fontSize: 15)),
+              ),
+            )
+          else
+            for (final r in _punches) ...[
+              _PunchCard(punch: r),
+              const SizedBox(height: 14),
+            ],
         ],
       ),
     );
   }
 
   Widget _appBar() {
+    final name = MockAuth.instance.currentUser?.name ?? 'Admin';
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 16, 6),
       child: Row(
@@ -68,148 +124,19 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
           const Spacer(),
           const ZegarLogo(fontSize: 22),
           const Spacer(),
-          const UserAvatar(
-            name: MockData.adminName,
-            imageUrl: MockData.adminAvatar,
-            radius: 20,
-            ring: true,
-          ),
+          UserAvatar(name: name, radius: 20, ring: true),
         ],
       ),
     );
   }
 
-  Future<void> _pickMonth() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedMonth,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme:
-              const ColorScheme.light(primary: AppColors.primary),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked != null) setState(() => _selectedMonth = picked);
-  }
-
-  String get _monthLabel {
-    const names = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    return '${names[_selectedMonth.month - 1]} ${_selectedMonth.year}';
-  }
-
-  Widget _monthSelector() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: GestureDetector(
-        onTap: _pickMonth,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.fieldBorder),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.calendar_today,
-                  size: 18, color: AppColors.primary),
-              const SizedBox(width: 10),
-              Text(
-                _monthLabel,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Icon(Icons.keyboard_arrow_down,
-                  size: 20, color: AppColors.textSecondary),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _weekStrip() {
+  Widget _statRow(int present, int total) {
     return Row(
       children: [
-        const Icon(Icons.chevron_left, color: AppColors.textMuted),
-        Expanded(
-          child: Row(
-            children: [
-              for (var i = 0; i < _days.length; i++)
-                Expanded(child: _dayChip(i, _days[i].$1, _days[i].$2)),
-            ],
-          ),
-        ),
-        const Icon(Icons.chevron_right, color: AppColors.textMuted),
-      ],
-    );
-  }
-
-  Widget _dayChip(int i, String dow, String date) {
-    final selected = _selectedDay == i;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedDay = i),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Text(
-              dow,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: selected ? Colors.white70 : AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              date,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: selected ? Colors.white : AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: _statCard(
-            'PRESENT',
-            MockData.attendancePresent,
-            AppColors.primary,
-          ),
-        ),
+        Expanded(child: _statCard('CLOCKED IN', '$present', AppColors.primary)),
         const SizedBox(width: 14),
         Expanded(
-          child: _statCard(
-            'ON TIME',
-            MockData.attendanceOnTime,
-            AppColors.textPrimary,
-          ),
+          child: _statCard('TOTAL TODAY', '$total', AppColors.textPrimary),
         ),
       ],
     );
@@ -250,19 +177,15 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
   }
 }
 
-class _AttendanceCard extends StatelessWidget {
-  const _AttendanceCard({required this.record});
-  final DayAttendance record;
+class _PunchCard extends StatelessWidget {
+  const _PunchCard({required this.punch});
+  final RecentPunch punch;
 
   @override
   Widget build(BuildContext context) {
-    final isLate = record.status == DayStatus.late;
-    final cardColor =
-        isLate ? const Color(0xFFFDF3F3) : AppColors.surface;
-
     return Container(
       decoration: BoxDecoration(
-        color: cardColor,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -277,23 +200,16 @@ class _AttendanceCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.textSecondary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(_deptIcon(record.department),
-                    color: AppColors.textSecondary, size: 22),
-              ),
+              UserAvatar(name: punch.employeeName, radius: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      record.name,
+                      punch.employeeName.isEmpty
+                          ? 'Unnamed'
+                          : punch.employeeName,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -302,7 +218,7 @@ class _AttendanceCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${record.empId} • ${record.department}',
+                      'ID ${punch.customId} • ${punch.departmentName}',
                       style: TextStyle(
                           fontSize: 13, color: AppColors.textSecondary),
                     ),
@@ -317,15 +233,9 @@ class _AttendanceCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              _timeCol('In Time', record.inTime,
-                  valueColor: isLate ? AppColors.primary : null),
-              _timeCol('Out Time', record.outTime),
-              _timeCol(
-                'Total',
-                '${record.totalMins} mins',
-                valueColor: AppColors.primary,
-                alignEnd: true,
-              ),
+              _timeCol('In Time', punch.dutyIn),
+              _timeCol('Out Time', punch.dutyOut),
+              _timeCol('Date', punch.date, alignEnd: true),
             ],
           ),
         ],
@@ -334,10 +244,10 @@ class _AttendanceCard extends StatelessWidget {
   }
 
   Widget _statusBadge() {
-    final present = record.status == DayStatus.present;
-    final color = present ? const Color(0xFF2BB673) : const Color(0xFFB8860B);
-    final bg = present ? const Color(0xFFE7F7EF) : const Color(0xFFFBF3D9);
-    final label = present ? 'PRESENT' : 'LATE';
+    final isIn = punch.isIn;
+    final color = isIn ? const Color(0xFF2BB673) : const Color(0xFFB8860B);
+    final bg = isIn ? const Color(0xFFE7F7EF) : const Color(0xFFFBF3D9);
+    final label = isIn ? 'IN' : 'OUT';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -356,8 +266,7 @@ class _AttendanceCard extends StatelessWidget {
     );
   }
 
-  Widget _timeCol(String label, String value,
-      {Color? valueColor, bool alignEnd = false}) {
+  Widget _timeCol(String label, String value, {bool alignEnd = false}) {
     final cross =
         alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     return Expanded(
@@ -368,24 +277,15 @@ class _AttendanceCard extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 4),
           Text(
-            value,
-            style: TextStyle(
+            value.isEmpty ? '—' : value,
+            style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
-              color: valueColor ?? AppColors.textPrimary,
+              color: AppColors.textPrimary,
             ),
           ),
         ],
       ),
     );
-  }
-
-  IconData _deptIcon(String dept) {
-    final d = dept.toLowerCase();
-    if (d.contains('engineer')) return Icons.engineering_outlined;
-    if (d.contains('design')) return Icons.brush_outlined;
-    if (d.contains('operation')) return Icons.settings_suggest_outlined;
-    if (d.contains('security')) return Icons.shield_outlined;
-    return Icons.badge_outlined;
   }
 }

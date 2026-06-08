@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../data/mock_data.dart';
+import '../../services/mock_auth.dart';
+import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/user_avatar.dart';
@@ -16,6 +18,37 @@ class LeaveRequestsPage extends StatefulWidget {
 class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
   LeaveStatus? _filter; // null = All Requests
 
+  bool _loading = true;
+  String? _error;
+  List<LeaveRequest> _items = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final rows = await ZedgiftApi.instance.leaves();
+      if (!mounted) return;
+      setState(() {
+        _items = rows.map(_mapLeave).toList();
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load leave requests.';
+        _loading = false;
+      });
+    }
+  }
+
   static const _chips = <(String, LeaveStatus?)>[
     ('All Requests', null),
     ('Pending', LeaveStatus.pending),
@@ -23,13 +56,12 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
     ('Rejected', LeaveStatus.rejected),
   ];
 
-  List<LeaveRequest> get _filtered => MockData.leaveRequests
+  List<LeaveRequest> get _filtered => _items
       .where((r) => _filter == null || r.status == _filter)
       .toList();
 
   @override
   Widget build(BuildContext context) {
-    final list = _filtered;
     return Scaffold(
       backgroundColor: AppColors.scaffold,
       bottomNavigationBar: AdminBottomNav(
@@ -44,19 +76,101 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
             const SizedBox(height: 8),
             _filterChips(),
             const SizedBox(height: 8),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                itemCount: list.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 14),
-                itemBuilder: (context, i) =>
-                    _LeaveCard(request: list[i], initiallyExpanded: i < 2),
-              ),
-            ),
+            Expanded(child: _listArea()),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _listArea() {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off, size: 48, color: AppColors.textMuted),
+            const SizedBox(height: 12),
+            Text(_error!,
+                style:
+                    TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+            const SizedBox(height: 14),
+            OutlinedButton(onPressed: _load, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+    final list = _filtered;
+    if (list.isEmpty) {
+      return Center(
+        child: Text('No leave requests.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+      );
+    }
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        itemCount: list.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 14),
+        itemBuilder: (context, i) =>
+            _LeaveCard(request: list[i], initiallyExpanded: i < 2),
+      ),
+    );
+  }
+
+  // Defensive mapping — the /leaves response shape isn't documented, so we
+  // read several possible field names and fall back gracefully.
+  LeaveRequest _mapLeave(Map<String, dynamic> j) {
+    String s(List<String> keys) {
+      for (final k in keys) {
+        final v = j[k];
+        if (v != null && v.toString().trim().isNotEmpty) {
+          return v.toString().trim();
+        }
+      }
+      return '';
+    }
+
+    final emp = (j['employee'] as Map?)?.cast<String, dynamic>();
+    final name = s(['employee_name', 'name']).isNotEmpty
+        ? s(['employee_name', 'name'])
+        : (emp == null ? '' : (emp['name']?.toString() ?? ''));
+
+    final rawStatus = s(['status', 'leave_status']).toLowerCase();
+    LeaveStatus status;
+    if (rawStatus.contains('approve') || rawStatus == '1') {
+      status = LeaveStatus.approved;
+    } else if (rawStatus.contains('reject') || rawStatus == '2') {
+      status = LeaveStatus.rejected;
+    } else {
+      status = LeaveStatus.pending;
+    }
+
+    final from = s(['from_date', 'start_date', 'leave_from', 'date_from']);
+    final to = s(['to_date', 'end_date', 'leave_to', 'date_to']);
+    final range = [from, to].where((e) => e.isNotEmpty).join(' - ');
+
+    return LeaveRequest(
+      name: name.isEmpty ? 'Employee' : name,
+      role: s(['designation', 'role']),
+      department: s(['department', 'department_name']),
+      employeeId: s(['custom_employee_id', 'employee_id', 'id']),
+      leaveType: s(['leave_type', 'type']).isEmpty
+          ? 'Leave'
+          : s(['leave_type', 'type']),
+      ref: '#${s(['id', 'ref'])}',
+      status: status,
+      dateRange: range.isEmpty ? s(['date', 'dates']) : range,
+      duration: s(['days', 'duration', 'total_days']),
+      reason: s(['reason', 'note', 'remark']),
+      footerNote: s(['created_at', 'applied_at']),
     );
   }
 
@@ -73,9 +187,8 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
           const Spacer(),
           const ZegarLogo(fontSize: 22),
           const Spacer(),
-          const UserAvatar(
-            name: MockData.adminName,
-            imageUrl: MockData.adminAvatar,
+          UserAvatar(
+            name: MockAuth.instance.currentUser?.name ?? 'Admin',
             radius: 20,
             ring: true,
           ),
