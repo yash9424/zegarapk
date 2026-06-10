@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../widgets/zegar_logo.dart';
 import 'admin/admin_shell.dart';
 import 'employee/employee_shell.dart';
+import 'face_attendance_page.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -383,8 +384,9 @@ class _LoginScreenState extends State<LoginScreen> {
       width: double.infinity,
       height: 54,
       child: OutlinedButton.icon(
-        onPressed: () =>
-            _showSnack('Attendance kiosk mode is coming soon.'),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const FaceAttendancePage()),
+        ),
         style: OutlinedButton.styleFrom(
           backgroundColor: AppColors.softRedTint,
           side: const BorderSide(color: Color(0xFFEFC4C8)),

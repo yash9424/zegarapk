@@ -62,7 +62,7 @@ class MockAuth {
       if (token == null || token.isEmpty) {
         return const AuthResult.failure('Login failed. Please try again.');
       }
-      ApiClient.instance.setToken(token);
+      await ApiClient.instance.saveToken(token);
 
       final user = (map['user'] as Map?)?.cast<String, dynamic>();
       final name = _composeName(user) ?? id;
@@ -79,9 +79,18 @@ class MockAuth {
     }
   }
 
+  /// Leaves the admin panel UI but KEEPS the device authorised so the kiosk
+  /// "Mark Attendance" keeps working for employees who never log in.
+  /// Use [unlinkDevice] to fully sign the device out.
   void logout() {
-    ApiClient.instance.setToken(null);
     currentUser = null;
+  }
+
+  /// Fully sign out: clears the admin session AND the saved device token,
+  /// so the kiosk will require an admin to log in again.
+  Future<void> unlinkDevice() async {
+    currentUser = null;
+    await ApiClient.instance.saveToken(null);
   }
 
   String? _composeName(Map<String, dynamic>? user) {

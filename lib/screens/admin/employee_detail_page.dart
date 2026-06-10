@@ -4,6 +4,7 @@ import '../../models/api_models.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/user_avatar.dart';
+import 'face_enroll_page.dart';
 
 /// Full employee profile loaded live from `GET /employees/{id}`, plus the
 /// person's recent attendance from `GET /attendance/history`.
@@ -68,6 +69,22 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         title: Text(_emp?.name.isNotEmpty == true
             ? _emp!.name
             : (widget.fallbackName.isEmpty ? 'Employee' : widget.fallbackName)),
+        actions: [
+          IconButton(
+            tooltip: 'Register Face',
+            icon: const Icon(Icons.face_retouching_natural),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => FaceEnrollPage(
+                  employeeId: widget.employeeId,
+                  employeeName: _emp?.name.isNotEmpty == true
+                      ? _emp!.name
+                      : widget.fallbackName,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: _body(),
     );

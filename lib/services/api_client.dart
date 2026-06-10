@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_config.dart';
 
@@ -27,12 +28,32 @@ class ApiClient {
   final http.Client _http = http.Client();
 
   String? _token;
+  static const String _tokenKey = 'zedgift_access_token';
 
   /// True once a successful login has stored a Bearer token.
   bool get isAuthenticated => _token != null && _token!.isNotEmpty;
 
-  /// Store / clear the access token used for authenticated calls.
+  /// Store / clear the access token in memory for the current session.
   void setToken(String? token) => _token = token;
+
+  /// Persist (or clear) the token on the device so a kiosk stays logged in
+  /// across app restarts.
+  Future<void> saveToken(String? token) async {
+    setToken(token);
+    final prefs = await SharedPreferences.getInstance();
+    if (token == null || token.isEmpty) {
+      await prefs.remove(_tokenKey);
+    } else {
+      await prefs.setString(_tokenKey, token);
+    }
+  }
+
+  /// Load any previously saved token into memory (call once at startup).
+  Future<void> restoreToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_tokenKey);
+    if (saved != null && saved.isNotEmpty) _token = saved;
+  }
 
   Map<String, String> _headers({bool auth = true, bool jsonBody = false}) {
     final h = <String, String>{
@@ -63,17 +84,25 @@ class ApiClient {
         .timeout(ApiConfig.timeout));
   }
 
-  /// POST sending `multipart/form-data` (the backend's login/punch/etc.
-  /// all use form fields, not JSON).
+  /// POST sending `multipart/form-data` (the backend's login/punch/face all
+  /// use form fields, not JSON). [files] maps a field name to a local file
+  /// path and is sent as a file part (e.g. `face_image`).
   Future<dynamic> postForm(
     String path,
     Map<String, String> fields, {
     bool auth = true,
+    Map<String, String>? files,
   }) async {
     return _send(() async {
       final req = http.MultipartRequest('POST', _uri(path))
         ..headers.addAll(_headers(auth: auth))
         ..fields.addAll(fields);
+      if (files != null) {
+        for (final entry in files.entries) {
+          req.files
+              .add(await http.MultipartFile.fromPath(entry.key, entry.value));
+        }
+      }
       final streamed = await req.send().timeout(ApiConfig.timeout);
       return http.Response.fromStream(streamed);
     });

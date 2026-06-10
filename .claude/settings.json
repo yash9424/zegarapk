@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed 's/\\\\\\\\\\\\\\\\n/\\\\n/g; s/\\\\\\\\n/\\\\n/g; s/\\\\\\\\\\\\\\\\\"/\"/g; s/\\\\\\\\\"/\"/g')",
+      "Read(//tmp/**)",
+      "Bash(curl -sL -o \"assets/models/mobilefacenet.tflite\" \"https://raw.githubusercontent.com/MCarlomagno/FaceRecognitionAuth/master/assets/mobilefacenet.tflite\")",
+      "Bash(file assets/models/mobilefacenet.tflite)",
+      "Bash(stat -c %s assets/models/mobilefacenet.tflite)"
+    ]
+  }
+}

@@ -76,12 +76,47 @@ class ZedgiftApi {
     return <String, dynamic>{};
   }
 
-  /// Mark a punch (clock in/out). [type] is one of
-  /// face / fingerprint / rfid / manual.
-  Future<void> punch(int employeeId, {String type = 'manual'}) async {
-    await _c.postForm('attendance/punch', {
+  /// Mark a punch (clock in/out — the server auto-toggles). [type] is one of
+  /// face / fingerprint / rfid / manual. Returns the decoded `data` (often
+  /// contains the new `punch_status`).
+  Future<Map<String, dynamic>> punch(
+    int employeeId, {
+    String type = 'manual',
+  }) async {
+    final data = await _c.postForm('attendance/punch', {
       'employee_id': employeeId.toString(),
       'type': type,
     });
+    if (data is Map) return data.cast<String, dynamic>();
+    return <String, dynamic>{};
+  }
+
+  // ---- Face --------------------------------------------------------------
+
+  /// Register an employee's reference face photo + descriptor.
+  /// `face_image` is required; `descriptor` (JSON) carries the embeddings so
+  /// any device can identify the person after syncing.
+  Future<void> registerFace(
+    int employeeId,
+    String imagePath, {
+    String? descriptor,
+  }) async {
+    await _c.postForm(
+      'attendance/face/register',
+      {
+        'employee_id': employeeId.toString(),
+        if (descriptor != null && descriptor.isNotEmpty)
+          'descriptor': descriptor,
+      },
+      files: {'face_image': imagePath},
+    );
+  }
+
+  /// Get one employee's registered face (`GET /attendance/face/{id}`),
+  /// including its stored `descriptor`. Returns the decoded `data` map.
+  Future<Map<String, dynamic>> getFace(int employeeId) async {
+    final data = await _c.get('attendance/face/$employeeId');
+    if (data is Map) return data.cast<String, dynamic>();
+    return <String, dynamic>{};
   }
 }

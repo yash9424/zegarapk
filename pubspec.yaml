@@ -36,6 +36,14 @@ dependencies:
   cupertino_icons: ^1.0.8
   google_fonts: ^8.1.0
   http: ^1.2.2
+  image_picker: ^1.1.2
+  shared_preferences: ^2.3.2
+  # Live face capture + on-device recognition
+  camera: ^0.11.0+2
+  google_mlkit_face_detection: ^0.13.1
+  tflite_flutter: ^0.11.0
+  image: ^4.2.0
+  path_provider: ^2.1.4
 
 dev_dependencies:
   flutter_test:
@@ -65,6 +73,7 @@ flutter:
 
   assets:
     - assets/icon/
+    - assets/models/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
