@@ -157,6 +157,16 @@ class EmployeeDetail {
   }
 }
 
+/// A company from `GET /companies`.
+class Company {
+  Company({required this.id, required this.name});
+  final int id;
+  final String name;
+
+  factory Company.fromJson(Map<String, dynamic> j) =>
+      Company(id: _int(j['id']), name: _str(j['name']).trim());
+}
+
 /// A name + employee_count row (departments, designations, employee-types).
 class NamedCount {
   NamedCount({required this.id, required this.name, required this.count});

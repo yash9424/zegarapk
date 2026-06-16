@@ -32,6 +32,11 @@ class ZedgiftApi {
 
   // ---- Lookups -----------------------------------------------------------
 
+  Future<List<Company>> companies() async {
+    final data = await _c.get('companies');
+    return _list(data).map(Company.fromJson).toList();
+  }
+
   Future<List<NamedCount>> departments() async {
     final data = await _c.get('departments');
     return _list(data).map(NamedCount.fromJson).toList();

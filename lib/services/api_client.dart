@@ -33,6 +33,10 @@ class ApiClient {
   /// True once a successful login has stored a Bearer token.
   bool get isAuthenticated => _token != null && _token!.isNotEmpty;
 
+  /// The company whose data calls return. Defaults to the configured one but
+  /// can be switched at runtime (e.g. from the employee-list company filter).
+  String companyId = ApiConfig.companyId;
+
   /// Store / clear the access token in memory for the current session.
   void setToken(String? token) => _token = token;
 
@@ -58,7 +62,7 @@ class ApiClient {
   Map<String, String> _headers({bool auth = true, bool jsonBody = false}) {
     final h = <String, String>{
       'Accept': 'application/json',
-      'Company-ID': ApiConfig.companyId,
+      'Company-ID': companyId,
     };
     if (jsonBody) h['Content-Type'] = 'application/json';
     if (auth && isAuthenticated) h['Authorization'] = 'Bearer $_token';

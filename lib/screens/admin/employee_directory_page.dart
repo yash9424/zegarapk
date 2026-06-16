@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/api_models.dart';
+import '../../services/api_client.dart';
 import '../../services/mock_auth.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
@@ -20,12 +21,15 @@ class EmployeeDirectoryPage extends StatefulWidget {
 class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
   final _searchCtrl = TextEditingController();
   String _query = '';
-  String? _category; // null = All
+  String? _category; // department name, null = All
+  String _status = 'all'; // all / active / inactive
 
   bool _loading = true;
   String? _error;
   List<EmployeeListItem> _all = const [];
   List<NamedCount> _departments = const [];
+  List<Company> _companies = const [];
+  late String _companyId = ApiClient.instance.companyId;
 
   @override
   void initState() {
@@ -48,11 +52,13 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
       final results = await Future.wait([
         ZedgiftApi.instance.employees(),
         ZedgiftApi.instance.departments(),
+        ZedgiftApi.instance.companies(),
       ]);
       if (!mounted) return;
       setState(() {
         _all = results[0] as List<EmployeeListItem>;
         _departments = results[1] as List<NamedCount>;
+        _companies = results[2] as List<Company>;
         _loading = false;
       });
     } catch (e) {
@@ -68,13 +74,26 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
     final q = _query.trim().toLowerCase();
     return _all.where((e) {
       final matchesCat = _category == null || e.departmentName == _category;
+      final matchesStatus = _status == 'all' ||
+          (_status == 'active' && e.active) ||
+          (_status == 'inactive' && !e.active);
       final matchesQuery = q.isEmpty ||
           e.name.toLowerCase().contains(q) ||
           e.designationName.toLowerCase().contains(q) ||
           e.departmentName.toLowerCase().contains(q) ||
           e.customId.toString().contains(q);
-      return matchesCat && matchesQuery;
+      return matchesCat && matchesStatus && matchesQuery;
     }).toList();
+  }
+
+  /// Switch the active company → reload its employees + departments.
+  Future<void> _onCompanyChanged(String id) async {
+    ApiClient.instance.companyId = id;
+    setState(() {
+      _companyId = id;
+      _category = null; // department list will change
+    });
+    await _load();
   }
 
   @override
@@ -113,8 +132,10 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
           children: [
             _appBar(),
             _searchBar(),
-            const SizedBox(height: 12),
-            _filterChips(),
+            if (!_loading && _error == null && _companies.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _filters(),
+            ],
             const SizedBox(height: 8),
             Expanded(child: _listArea()),
           ],
@@ -203,45 +224,94 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
     );
   }
 
-  Widget _filterChips() {
-    // "All" + each department from the API, with live counts.
-    final chips = <(String, String?, int)>[
-      ('All', null, _all.length),
-      for (final d in _departments) (d.name, d.name, d.count),
-    ];
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: chips.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 10),
-        itemBuilder: (_, i) {
-          final (label, cat, count) = chips[i];
-          final selected = _category == cat;
-          return GestureDetector(
-            onTap: () => setState(() => _category = cat),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primary : AppColors.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: selected ? AppColors.primary : AppColors.fieldBorder,
-                ),
-              ),
-              child: Text(
-                '$label $count',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : AppColors.textSecondary,
-                ),
+  Widget _filters() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      child: Row(
+        children: [
+          // Company (server list; switching reloads data).
+          Expanded(
+            child: _dropdown<String>(
+              icon: Icons.apartment,
+              value: _companyId,
+              items: [
+                for (final c in _companies)
+                  DropdownMenuItem(value: c.id.toString(), child: Text(c.name)),
+              ],
+              onChanged: (v) {
+                if (v != null && v != _companyId) _onCompanyChanged(v);
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Department (of current company).
+          Expanded(
+            child: _dropdown<String?>(
+              icon: Icons.groups,
+              value: _category,
+              items: [
+                const DropdownMenuItem(value: null, child: Text('All Dept.')),
+                for (final d in _departments)
+                  DropdownMenuItem(value: d.name, child: Text(d.name)),
+              ],
+              onChanged: (v) => setState(() => _category = v),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Active / Inactive.
+          Expanded(
+            child: _dropdown<String>(
+              icon: Icons.toggle_on,
+              value: _status,
+              items: const [
+                DropdownMenuItem(value: 'all', child: Text('All')),
+                DropdownMenuItem(value: 'active', child: Text('Active')),
+                DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+              ],
+              onChanged: (v) => setState(() => _status = v ?? 'all'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dropdown<T>({
+    required IconData icon,
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.fieldBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<T>(
+                value: value,
+                isExpanded: true,
+                isDense: true,
+                icon: const Icon(Icons.keyboard_arrow_down,
+                    size: 18, color: AppColors.textMuted),
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary),
+                items: items,
+                onChanged: onChanged,
               ),
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
