@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../services/mock_auth.dart';
 import '../theme/app_theme.dart';
+import 'admin/admin_shell.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -60,10 +62,16 @@ class _SplashScreenState extends State<SplashScreen>
 
   void _goToLogin() {
     if (!mounted) return;
+    // Already logged in? Skip login and go straight to the admin panel.
+    final user = MockAuth.instance.currentUser;
+    final Widget destination =
+        (MockAuth.instance.isLoggedIn && user != null)
+            ? AdminShell(user: user)
+            : const LoginScreen();
     Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(
         transitionDuration: const Duration(milliseconds: 600),
-        pageBuilder: (context, anim1, anim2) => const LoginScreen(),
+        pageBuilder: (context, anim1, anim2) => destination,
         transitionsBuilder: (context, anim, secAnim, child) => FadeTransition(
           opacity: anim,
           child: child,

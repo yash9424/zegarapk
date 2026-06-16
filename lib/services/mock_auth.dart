@@ -1,3 +1,5 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'api_client.dart';
 
 /// Roles a logged-in user can have. The ZedGift API is an admin-level API
@@ -41,6 +43,23 @@ class MockAuth {
 
   AuthUser? currentUser;
 
+  static const _kName = 'zedgift_user_name';
+  static const _kEmail = 'zedgift_user_email';
+
+  /// True if a previous session is still active (token + user restored).
+  bool get isLoggedIn => currentUser != null && ApiClient.instance.isAuthenticated;
+
+  /// Restore a saved session on app start so the admin stays logged in
+  /// (no automatic logout when the app is reopened).
+  Future<void> restore() async {
+    await ApiClient.instance.restoreToken();
+    if (!ApiClient.instance.isAuthenticated) return;
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString(_kName) ?? 'Administrator';
+    final email = prefs.getString(_kEmail) ?? '';
+    currentUser = AuthUser(name: name, email: email, role: UserRole.admin);
+  }
+
   Future<AuthResult> login({
     required String email,
     required String password,
@@ -71,6 +90,10 @@ class MockAuth {
       final authUser =
           AuthUser(name: name, email: mail, role: UserRole.admin);
       currentUser = authUser;
+      // Persist user so the session survives an app restart.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kName, name);
+      await prefs.setString(_kEmail, mail);
       return AuthResult.success(authUser);
     } on ApiException catch (e) {
       return AuthResult.failure(e.message);
@@ -79,18 +102,14 @@ class MockAuth {
     }
   }
 
-  /// Leaves the admin panel UI but KEEPS the device authorised so the kiosk
-  /// "Mark Attendance" keeps working for employees who never log in.
-  /// Use [unlinkDevice] to fully sign the device out.
-  void logout() {
-    currentUser = null;
-  }
-
-  /// Fully sign out: clears the admin session AND the saved device token,
-  /// so the kiosk will require an admin to log in again.
-  Future<void> unlinkDevice() async {
+  /// Full sign-out (only when the user taps Log Out): clears the session,
+  /// the saved token, and the saved user.
+  Future<void> logout() async {
     currentUser = null;
     await ApiClient.instance.saveToken(null);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kName);
+    await prefs.remove(_kEmail);
   }
 
   String? _composeName(Map<String, dynamic>? user) {

@@ -287,7 +287,7 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
                 children: [
                   Expanded(
                     flex: 3,
-                    child: Text(d.date,
+                    child: Text(_fmtDate(d.date),
                         style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -295,13 +295,13 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text('In  ${d.dutyIn}',
+                    child: Text('In  ${_fmtTime(d.dutyIn)}',
                         style: TextStyle(
                             fontSize: 12, color: AppColors.textSecondary)),
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text('Out ${d.dutyOut}',
+                    child: Text('Out ${_fmtTime(d.dutyOut)}',
                         style: TextStyle(
                             fontSize: 12, color: AppColors.textSecondary)),
                   ),
@@ -312,5 +312,26 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         ],
       ),
     );
+  }
+
+  /// "2026-05-27" (or ISO) -> "27-05-2026".
+  String _fmtDate(String s) {
+    if (s.isEmpty) return '--';
+    final d = s.contains('T') ? s.split('T').first : s;
+    final p = d.split('-');
+    if (p.length == 3) return '${p[2]}-${p[1]}-${p[0]}';
+    return s;
+  }
+
+  /// "11:30:55" -> "11:30 AM"; "00:00:00"/empty -> "--".
+  String _fmtTime(String s) {
+    if (s.isEmpty || s.startsWith('00:00')) return '--';
+    final p = s.split(':');
+    if (p.length < 2) return s;
+    final h = int.tryParse(p[0]) ?? 0;
+    final m = p[1].padLeft(2, '0');
+    final ap = h < 12 ? 'AM' : 'PM';
+    final h12 = h % 12 == 0 ? 12 : h % 12;
+    return '$h12:$m $ap';
   }
 }

@@ -21,8 +21,8 @@ class EmployeeDirectoryPage extends StatefulWidget {
 class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
   final _searchCtrl = TextEditingController();
   String _query = '';
-  String? _category; // department name, null = All
-  String _status = 'all'; // all / active / inactive
+  final Set<String> _depts = {}; // empty = all departments
+  final Set<String> _statuses = {}; // subset of {active, inactive}; empty = all
 
   bool _loading = true;
   String? _error;
@@ -73,10 +73,11 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
   List<EmployeeListItem> get _filtered {
     final q = _query.trim().toLowerCase();
     return _all.where((e) {
-      final matchesCat = _category == null || e.departmentName == _category;
-      final matchesStatus = _status == 'all' ||
-          (_status == 'active' && e.active) ||
-          (_status == 'inactive' && !e.active);
+      final matchesCat =
+          _depts.isEmpty || _depts.contains(e.departmentName);
+      final matchesStatus = _statuses.isEmpty ||
+          (e.active && _statuses.contains('active')) ||
+          (!e.active && _statuses.contains('inactive'));
       final matchesQuery = q.isEmpty ||
           e.name.toLowerCase().contains(q) ||
           e.designationName.toLowerCase().contains(q) ||
@@ -91,7 +92,7 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
     ApiClient.instance.companyId = id;
     setState(() {
       _companyId = id;
-      _category = null; // department list will change
+      _depts.clear(); // department list will change
     });
     await _load();
   }
@@ -224,94 +225,295 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
     );
   }
 
+  String get _companyName => _companies
+      .firstWhere((c) => c.id.toString() == _companyId,
+          orElse: () => Company(id: 0, name: 'Company'))
+      .name;
+
   Widget _filters() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-      child: Row(
+    final noFilter = _depts.isEmpty && _statuses.isEmpty;
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         children: [
-          // Company (server list; switching reloads data).
-          Expanded(
-            child: _dropdown<String>(
-              icon: Icons.apartment,
-              value: _companyId,
-              items: [
-                for (final c in _companies)
-                  DropdownMenuItem(value: c.id.toString(), child: Text(c.name)),
-              ],
-              onChanged: (v) {
-                if (v != null && v != _companyId) _onCompanyChanged(v);
-              },
-            ),
+          _chip(
+            label: 'All',
+            icon: Icons.clear_all,
+            active: noFilter,
+            onTap: () => setState(() {
+              _depts.clear();
+              _statuses.clear();
+            }),
           ),
-          const SizedBox(width: 8),
-          // Department (of current company).
-          Expanded(
-            child: _dropdown<String?>(
-              icon: Icons.groups,
-              value: _category,
-              items: [
-                const DropdownMenuItem(value: null, child: Text('All Dept.')),
-                for (final d in _departments)
-                  DropdownMenuItem(value: d.name, child: Text(d.name)),
-              ],
-              onChanged: (v) => setState(() => _category = v),
-            ),
+          _chip(
+            label: _companyName,
+            icon: Icons.apartment,
+            active: true,
+            onTap: _pickCompany,
           ),
-          const SizedBox(width: 8),
-          // Active / Inactive.
-          Expanded(
-            child: _dropdown<String>(
-              icon: Icons.toggle_on,
-              value: _status,
-              items: const [
-                DropdownMenuItem(value: 'all', child: Text('All')),
-                DropdownMenuItem(value: 'active', child: Text('Active')),
-                DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-              ],
-              onChanged: (v) => setState(() => _status = v ?? 'all'),
-            ),
+          _chip(
+            label: _deptLabel(),
+            icon: Icons.groups,
+            active: _depts.isNotEmpty,
+            onTap: _pickDepartment,
+          ),
+          _chip(
+            label: _statusLabel(),
+            icon: Icons.verified_user_outlined,
+            active: _statuses.isNotEmpty,
+            onTap: _pickStatus,
           ),
         ],
       ),
     );
   }
 
-  Widget _dropdown<T>({
+  String _deptLabel() {
+    if (_depts.isEmpty) return 'All Departments';
+    if (_depts.length == 1) return _depts.first;
+    return '${_depts.length} Departments';
+  }
+
+  String _statusLabel() {
+    if (_statuses.isEmpty) return 'Active / Inactive';
+    return [
+      if (_statuses.contains('active')) 'Active',
+      if (_statuses.contains('inactive')) 'Inactive',
+    ].join(' + ');
+  }
+
+  Widget _chip({
+    required String label,
     required IconData icon,
-    required T value,
-    required List<DropdownMenuItem<T>> items,
-    required ValueChanged<T?> onChanged,
+    required bool active,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      height: 42,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.fieldBorder),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: AppColors.primary),
-          const SizedBox(width: 6),
-          Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<T>(
-                value: value,
-                isExpanded: true,
-                isDense: true,
-                icon: const Icon(Icons.keyboard_arrow_down,
-                    size: 18, color: AppColors.textMuted),
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary),
-                items: items,
-                onChanged: onChanged,
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: Material(
+        color: active ? AppColors.primary : AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: active ? AppColors.primary : AppColors.fieldBorder,
               ),
             ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon,
+                    size: 16,
+                    color: active ? Colors.white : AppColors.primary),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: active ? Colors.white : AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  /// Bottom-sheet option picker. Returns the chosen index, or null if dismissed.
+  Future<int?> _pickSheet(String title, List<String> labels, int current) {
+    return showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(title,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            const Divider(height: 1, color: AppColors.divider),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: labels.length,
+                itemBuilder: (_, i) {
+                  final sel = i == current;
+                  return ListTile(
+                    title: Text(labels[i],
+                        style: TextStyle(
+                          fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                          color: sel
+                              ? AppColors.primary
+                              : AppColors.textPrimary,
+                        )),
+                    trailing: sel
+                        ? const Icon(Icons.check, color: AppColors.primary)
+                        : null,
+                    onTap: () => Navigator.pop(ctx, i),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickCompany() async {
+    final values = _companies.map((c) => c.id.toString()).toList();
+    final labels = _companies.map((c) => c.name).toList();
+    final r = await _pickSheet('Select Company', labels, values.indexOf(_companyId));
+    if (r != null && values[r] != _companyId) _onCompanyChanged(values[r]);
+  }
+
+  Future<void> _pickDepartment() async {
+    final r = await _pickMulti(
+      'Select Departments',
+      [for (final d in _departments) (d.name, '${d.name} (${d.count})')],
+      _depts,
+    );
+    if (r != null) setState(() => _depts..clear()..addAll(r));
+  }
+
+  Future<void> _pickStatus() async {
+    final r = await _pickMulti(
+      'Select Status',
+      const [('active', 'Active'), ('inactive', 'Inactive')],
+      _statuses,
+    );
+    if (r != null) setState(() => _statuses..clear()..addAll(r));
+  }
+
+  /// Multi-select bottom sheet with checkboxes. Returns the chosen set, or
+  /// null if dismissed without applying.
+  Future<Set<String>?> _pickMulti(
+    String title,
+    List<(String, String)> options,
+    Set<String> current,
+  ) {
+    final sel = {...current};
+    return showModalBottomSheet<Set<String>>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(title,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700)),
+                ),
+              ),
+              const Divider(height: 1, color: AppColors.divider),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (_, i) {
+                    final o = options[i];
+                    final on = sel.contains(o.$1);
+                    return CheckboxListTile(
+                      value: on,
+                      activeColor: AppColors.primary,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(o.$2,
+                          style: const TextStyle(
+                              fontSize: 14, color: AppColors.textPrimary)),
+                      onChanged: (v) => setSheet(() {
+                        if (v == true) {
+                          sel.add(o.$1);
+                        } else {
+                          sel.remove(o.$1);
+                        }
+                      }),
+                    );
+                  },
+                ),
+              ),
+              const Divider(height: 1, color: AppColors.divider),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => setSheet(sel.clear),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textSecondary,
+                          side: const BorderSide(color: AppColors.fieldBorder),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text('Clear'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx, sel),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text('Apply'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

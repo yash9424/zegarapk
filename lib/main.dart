@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 import 'screens/splash_screen.dart';
-import 'services/api_client.dart';
+import 'services/mock_auth.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Restore any saved login token so a kiosk device stays authenticated.
-  await ApiClient.instance.restoreToken();
+  // Restore the saved session so the admin stays logged in across app
+  // restarts (no automatic logout). Only the Log Out button signs out.
+  await MockAuth.instance.restore();
   runApp(const ZegarApp());
 }
 
