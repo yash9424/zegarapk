@@ -108,12 +108,23 @@ class _FaceAttendancePageState extends State<FaceAttendancePage> {
           .attendanceByFace(emb, timestamp: _apiTimestamp(now));
       if (!mounted) return;
 
-      final name = (res['name'] ?? res['employee_name'] ?? 'Employee')
-          .toString();
       final empId =
           int.tryParse((res['employee_id'] ?? '').toString()) ?? 0;
+      // Server's punch response has no name — fetch it for the result screen.
+      var name =
+          (res['name'] ?? res['employee_name'] ?? '').toString().trim();
+      if (name.isEmpty && empId > 0) {
+        try {
+          name = (await ZedgiftApi.instance.employeeDetail(empId)).name;
+        } catch (_) {}
+        if (!mounted) return;
+      }
+      if (name.isEmpty) name = 'Employee';
+      // Server uses `type` ("in"/"out"); also accept punch_status/status.
       final status =
-          (res['punch_status'] ?? res['status'] ?? '').toString().toLowerCase();
+          (res['type'] ?? res['punch_status'] ?? res['status'] ?? '')
+              .toString()
+              .toLowerCase();
       final isIn = status == 'in';
       final label = status == 'in'
           ? 'Clocked IN'
