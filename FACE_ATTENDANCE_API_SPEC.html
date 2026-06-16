@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Face Attendance API</title>
+<style>
+  @page { margin: 16mm 15mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1c2435; font-size: 12.5px; line-height: 1.5; }
+  h1 { color: #C1121F; font-size: 21px; margin: 0 0 2px; }
+  .sub { color: #6b7384; font-size: 11.5px; margin-bottom: 12px; }
+  h2 { color: #C1121F; font-size: 15px; margin: 20px 0 6px; border-bottom: 2px solid #f3d2d5; padding-bottom: 4px; }
+  .lbl { font-weight: 700; margin: 11px 0 4px; }
+  code, pre { font-family: Consolas, monospace; }
+  pre { background: #f5f6fa; border: 1px solid #e6e8f0; border-radius: 6px; padding: 9px; font-size: 11px; white-space: pre-wrap; margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 11.5px; }
+  th, td { border: 1px solid #e6e8f0; padding: 5px 8px; text-align: left; vertical-align: top; }
+  th { background: #fceff0; }
+  .t { color:#0a58ca; font-family: Consolas, monospace; }
+  .box { background: #fceff0; border-left: 4px solid #C1121F; padding: 9px 12px; border-radius: 4px; margin: 9px 0; }
+  .tag { display:inline-block; font-size:10.5px; font-weight:700; color:#fff; padding:2px 7px; border-radius:4px; }
+  .new { background:#C1121F; } .ok { background:#2bb673; }
+</style>
+</head>
+<body>
+
+<h1>Face Attendance &mdash; API Spec</h1>
+<div class="sub">Zegar app &bull; Backend: PHP Laravel + MySQL &bull; Base URL: https://zedgift.viaaratech.com/api</div>
+
+<div class="box">
+Setup: ONE shared phone (kiosk). <b>Face recognition is done in the app</b>
+(ML Kit + MobileFaceNet). The <b>server</b> only needs to (1) <b>store</b> each
+employee's face embeddings, and (2) <b>save the punch</b> (attendance).<br><br>
+<b>Headers on every request:</b> <code>Authorization: Bearer &lt;token&gt;</code> ,
+<code>Company-ID: &lt;id&gt;</code> , <code>Accept: application/json</code><br>
+<b>Response formats:</b> date = <b>DD-MM-YYYY</b>, time = <b>12-hour</b> (e.g. 09:05 AM).
+</div>
+
+<!-- ============== 1 REGISTER ============== -->
+<h2>1) Register Face <span class="tag new">NEW</span></h2>
+<p>Admin enrols an employee. The app captures 5 angles, makes one embedding per
+angle, and sends them. The server stores them for that employee.</p>
+
+<div class="lbl">Endpoint</div>
+<pre>POST /attendance/face/register      (Content-Type: multipart/form-data)</pre>
+
+<div class="lbl">Request fields &mdash; with data types</div>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+  <tr><td>employee_id</td><td class="t">integer</td><td>Yes</td><td>the employee's id (from /employees)</td></tr>
+  <tr><td>embeddings</td><td class="t">JSON string</td><td>Yes</td><td>array of vectors; each vector = 192 decimal numbers (float)</td></tr>
+  <tr><td>face_image</td><td class="t">file (jpg/png)</td><td>No</td><td>one photo, kept on record only</td></tr>
+</table>
+
+<div class="lbl">Mock example &mdash; request</div>
+<pre>POST /attendance/face/register
+employee_id = 1038
+embeddings  = [
+  [0.0123, -0.0821, 0.1140, 0.0335, ... total 192 numbers ...],
+  [0.0201, -0.0772, 0.1002, 0.0419, ... total 192 numbers ...],
+  [0.0098, -0.0810, 0.1185, 0.0288, ... total 192 numbers ...]
+]
+face_image  = yash_face.jpg</pre>
+
+<div class="lbl">Mock example &mdash; response</div>
+<pre>{
+  "success": true,
+  "message": "Face registered successfully.",
+  "data": {
+    "employee_id": 1038,
+    "embeddings_count": 3
+  }
+}</pre>
+
+<!-- ============== 2 PUNCH ============== -->
+<h2>2) Mark Attendance (Punch) <span class="tag ok">EXISTS - confirm</span></h2>
+<p>After the app recognizes the employee (on the phone), it sends a punch. The
+server saves it and auto-decides IN or OUT (first punch of the day = IN, next = OUT).</p>
+
+<div class="lbl">Endpoint</div>
+<pre>POST /attendance/punch              (Content-Type: multipart/form-data)</pre>
+
+<div class="lbl">Request fields &mdash; with data types</div>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+  <tr><td>employee_id</td><td class="t">integer</td><td>Yes</td><td>recognized employee's id</td></tr>
+  <tr><td>type</td><td class="t">string</td><td>No</td><td>"face"</td></tr>
+  <tr><td>timestamp</td><td class="t">string (datetime)</td><td>No</td><td>format: YYYY-MM-DD HH:MM:SS (24h, server time ok)</td></tr>
+</table>
+
+<div class="lbl">Mock example &mdash; request</div>
+<pre>POST /attendance/punch
+employee_id = 1038
+type        = face
+timestamp   = 2026-06-09 09:05:00</pre>
+
+<div class="lbl">Mock example &mdash; response (IN)</div>
+<pre>{
+  "success": true,
+  "message": "Attendance marked.",
+  "data": {
+    "employee_id": 1038,
+    "custom_employee_id": 12,
+    "name": "Yash Patel",
+    "punch_status": "in",
+    "date": "09-06-2026",
+    "time": "09:05 AM"
+  }
+}</pre>
+
+<div class="lbl">Mock example &mdash; response (evening, OUT)</div>
+<pre>{
+  "success": true,
+  "message": "Attendance marked.",
+  "data": {
+    "employee_id": 1038,
+    "punch_status": "out",
+    "date": "09-06-2026",
+    "time": "06:40 PM"
+  }
+}</pre>
+
+<!-- ============== types summary ============== -->
+<h2>Data types &mdash; quick reference</h2>
+<table>
+  <tr><th>Name</th><th>Type</th><th>Example</th></tr>
+  <tr><td>employee_id</td><td class="t">integer</td><td>1038</td></tr>
+  <tr><td>embeddings</td><td class="t">JSON array of arrays (float)</td><td>[[0.01, -0.08, ...], ...]</td></tr>
+  <tr><td>face_image</td><td class="t">file</td><td>yash_face.jpg</td></tr>
+  <tr><td>type</td><td class="t">string</td><td>"face"</td></tr>
+  <tr><td>timestamp</td><td class="t">string</td><td>"2026-06-09 09:05:00"</td></tr>
+  <tr><td>punch_status</td><td class="t">string</td><td>"in" / "out"</td></tr>
+  <tr><td>date</td><td class="t">string (DD-MM-YYYY)</td><td>"09-06-2026"</td></tr>
+  <tr><td>time</td><td class="t">string (12-hour)</td><td>"09:05 AM"</td></tr>
+  <tr><td>confidence</td><td class="t">float (0&ndash;1)</td><td>0.83</td></tr>
+</table>
+
+<div class="box">
+<b>Summary for developer:</b> Build endpoint #1 (store embeddings), confirm
+endpoint #2 (save punch, auto IN/OUT). Face matching is on the app. Use
+<b>DD-MM-YYYY</b> for date and <b>12-hour</b> for time in responses.
+</div>
+
+</body>
+</html>

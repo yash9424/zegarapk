@@ -154,7 +154,7 @@ class _FaceEnrollPageState extends State<FaceEnrollPage> {
         await ZedgiftApi.instance.registerFace(
           widget.employeeId,
           _straightImagePath!,
-          descriptor: jsonEncode(_embeddings), // all angles
+          embeddings: jsonEncode(_embeddings), // all angles -> face_embeddings
         );
       }
     } catch (_) {/* local enrolment still succeeded */}

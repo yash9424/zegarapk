@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../models/api_models.dart';
 import 'api_client.dart';
 
@@ -93,29 +95,46 @@ class ZedgiftApi {
 
   // ---- Face --------------------------------------------------------------
 
-  /// Register an employee's reference face photo + descriptor.
-  /// `face_image` is required; `descriptor` (JSON) carries the embeddings so
-  /// any device can identify the person after syncing.
+  /// Register an employee's reference face photo + embeddings.
+  /// Endpoint: `POST /employees/face/register`.
+  /// `face_image` required; `embeddings` is a JSON array of vectors
+  /// (one per captured angle, e.g. `[[...],[...]]`) — the server stores it as
+  /// `face_embeddings` and uses it to identify the person later.
   Future<void> registerFace(
     int employeeId,
     String imagePath, {
-    String? descriptor,
+    String? embeddings,
   }) async {
     await _c.postForm(
-      'attendance/face/register',
+      'employees/face/register',
       {
         'employee_id': employeeId.toString(),
-        if (descriptor != null && descriptor.isNotEmpty)
-          'descriptor': descriptor,
+        if (embeddings != null && embeddings.isNotEmpty)
+          'embeddings': embeddings,
       },
       files: {'face_image': imagePath},
     );
   }
 
-  /// Get one employee's registered face (`GET /attendance/face/{id}`),
-  /// including its stored `descriptor`. Returns the decoded `data` map.
+  /// Get one employee's registered face (`GET /employees/face/{id}`).
   Future<Map<String, dynamic>> getFace(int employeeId) async {
-    final data = await _c.get('attendance/face/$employeeId');
+    final data = await _c.get('employees/face/$employeeId');
+    if (data is Map) return data.cast<String, dynamic>();
+    return <String, dynamic>{};
+  }
+
+  /// Mark attendance by face. The phone sends the scanned face's [embedding];
+  /// the SERVER finds the matching employee and records the punch.
+  /// Endpoint: `POST /attendance/face/punch` (field `embeddings` = JSON).
+  /// Returns the decoded `data` (matched employee + punch info).
+  Future<Map<String, dynamic>> attendanceByFace(
+    List<double> embedding, {
+    String? timestamp,
+  }) async {
+    final data = await _c.postForm('attendance/face/punch', {
+      'embeddings': jsonEncode(embedding),
+      if (timestamp != null && timestamp.isNotEmpty) 'timestamp': timestamp,
+    });
     if (data is Map) return data.cast<String, dynamic>();
     return <String, dynamic>{};
   }
