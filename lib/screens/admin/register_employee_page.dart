@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
-import '../../data/mock_data.dart';
+import '../../models/api_models.dart';
+import '../../services/mock_auth.dart';
+import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/face_scan_circle.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/zegar_logo.dart';
+import 'face_enroll_page.dart';
 
+/// Pick an existing employee (real list from the API). Selecting one fills the
+/// detail fields, and the face is registered via the camera enrol flow.
 class RegisterEmployeePage extends StatefulWidget {
   const RegisterEmployeePage({super.key});
 
@@ -16,68 +20,60 @@ class RegisterEmployeePage extends StatefulWidget {
 }
 
 class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
-  final _formKey = GlobalKey<FormState>();
-
-  final _idCtrl = TextEditingController(text: 'EMP001');
-  final _nameCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-  final _designationCtrl = TextEditingController();
-
-  String? _selectedEmployeeId;
-  String? _department;
-  String? _type;
-  DateTime? _dateOfJoining;
-  String _avatarUrl = 'https://i.pravatar.cc/400?img=68';
+  bool _loading = true;
+  String? _error;
+  List<EmployeeListItem> _employees = const [];
+  EmployeeListItem? _selected;
 
   @override
-  void dispose() {
-    _idCtrl.dispose();
-    _nameCtrl.dispose();
-    _phoneCtrl.dispose();
-    _designationCtrl.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _load();
   }
 
-  void _onSelectEmployee(String? id) {
+  Future<void> _load() async {
     setState(() {
-      _selectedEmployeeId = id;
-      if (id == null) return;
-      final e = MockData.employees.firstWhere((e) => e.id == id);
-      _idCtrl.text = e.id;
-      _nameCtrl.text = e.name;
-      _phoneCtrl.text = e.phone;
-      _designationCtrl.text = e.designation;
-      _department = e.department;
-      _type = e.type;
-      _avatarUrl = e.avatarUrl;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final list = await ZedgiftApi.instance.employees();
+      if (!mounted) return;
+      setState(() {
+        _employees = list;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load employees.';
+        _loading = false;
+      });
+    }
   }
 
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
+  Future<void> _pickEmployee() async {
+    final picked = await showModalBottomSheet<EmployeeListItem>(
       context: context,
-      initialDate: _dateOfJoining ?? now,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(now.year + 1),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: AppColors.primary),
-        ),
-        child: child!,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (_) => _EmployeePickerSheet(employees: _employees),
     );
-    if (picked != null) setState(() => _dateOfJoining = picked);
+    if (picked != null) setState(() => _selected = picked);
   }
 
-  void _submit() {
-    if (!_formKey.currentState!.validate()) return;
-    if (_dateOfJoining == null) {
-      _snack('Please pick the date of joining.');
+  void _registerFace() {
+    final e = _selected;
+    if (e == null) {
+      _snack('Please select an employee first.');
       return;
     }
-    _snack('Employee ${_nameCtrl.text} registered (mock).');
-    Navigator.of(context).maybePop();
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => FaceEnrollPage(employeeId: e.id, employeeName: e.name),
+    ));
   }
 
   void _snack(String msg) {
@@ -88,18 +84,6 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
         behavior: SnackBarBehavior.floating,
       ));
   }
-
-  String get _dateLabel {
-    final d = _dateOfJoining;
-    if (d == null) return 'Select date';
-    return '${d.day.toString().padLeft(2, '0')} '
-        '${_months[d.month - 1]} ${d.year}';
-  }
-
-  static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -132,14 +116,14 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
                   const SizedBox(height: 6),
                   Center(
                     child: Text(
-                      'Ensure the face is clearly visible within the frame.',
+                      'Select an employee, then scan to register the face.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 14, color: AppColors.textSecondary),
                     ),
                   ),
                   const SizedBox(height: 22),
-                  Center(child: FaceScanCircle(imageUrl: _avatarUrl)),
+                  const Center(child: FaceScanCircle(imageUrl: '')),
                   const SizedBox(height: 16),
                   Center(child: _lightingBadge()),
                   const SizedBox(height: 24),
@@ -156,6 +140,7 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
   }
 
   Widget _appBar() {
+    final name = MockAuth.instance.currentUser?.name ?? 'Admin';
     return Padding(
       padding: const EdgeInsets.fromLTRB(6, 6, 16, 6),
       child: Row(
@@ -168,12 +153,7 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
           const Spacer(),
           const ZegarLogo(fontSize: 22),
           const Spacer(),
-          const UserAvatar(
-            name: MockData.adminName,
-            imageUrl: MockData.adminAvatar,
-            radius: 20,
-            ring: true,
-          ),
+          UserAvatar(name: name, radius: 20, ring: true),
         ],
       ),
     );
@@ -205,6 +185,7 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
   }
 
   Widget _formCard() {
+    final e = _selected;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -218,61 +199,41 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
         ],
       ),
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _label('Select Employee'),
-            const SizedBox(height: 8),
-            _employeeDropdown(),
-            const SizedBox(height: 18),
-            _label('Employee ID'),
-            const SizedBox(height: 8),
-            _textField(_idCtrl, 'EMP001'),
-            const SizedBox(height: 18),
-            _label('Name'),
-            const SizedBox(height: 8),
-            _textField(_nameCtrl, 'Full name'),
-            const SizedBox(height: 18),
-            _label('Phone'),
-            const SizedBox(height: 8),
-            _textField(
-              _phoneCtrl,
-              '+1 415 555 0100',
-              keyboard: TextInputType.phone,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]')),
-              ],
-            ),
-            const SizedBox(height: 18),
-            _label('Department'),
-            const SizedBox(height: 8),
-            _stringDropdown(
-              value: _department,
-              hint: 'Select department',
-              items: MockData.departments,
-              onChanged: (v) => setState(() => _department = v),
-            ),
-            const SizedBox(height: 18),
-            _label('Designation'),
-            const SizedBox(height: 8),
-            _textField(_designationCtrl, 'e.g. Senior Developer'),
-            const SizedBox(height: 18),
-            _label('Date Of Joining'),
-            const SizedBox(height: 8),
-            _dateField(),
-            const SizedBox(height: 18),
-            _label('Type'),
-            const SizedBox(height: 8),
-            _stringDropdown(
-              value: _type,
-              hint: 'Select type',
-              items: MockData.employmentTypes,
-              onChanged: (v) => setState(() => _type = v),
-            ),
-          ],
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _label('Select Employee'),
+          const SizedBox(height: 8),
+          _employeePicker(),
+          const SizedBox(height: 18),
+          _label('Employee ID'),
+          const SizedBox(height: 8),
+          _readField(e == null ? '' : e.customId.toString(), 'EMP ID'),
+          const SizedBox(height: 18),
+          _label('Name'),
+          const SizedBox(height: 8),
+          _readField(e?.name ?? '', 'Full name'),
+          const SizedBox(height: 18),
+          _label('Phone'),
+          const SizedBox(height: 8),
+          _readField(e?.phone ?? '', 'Phone'),
+          const SizedBox(height: 18),
+          _label('Department'),
+          const SizedBox(height: 8),
+          _readField(e?.departmentName ?? '', 'Department'),
+          const SizedBox(height: 18),
+          _label('Designation'),
+          const SizedBox(height: 8),
+          _readField(e?.designationName ?? '', 'Designation'),
+          const SizedBox(height: 18),
+          _label('Date Of Joining'),
+          const SizedBox(height: 8),
+          _readField(e?.doj ?? '', 'Date of joining'),
+          const SizedBox(height: 18),
+          _label('Type'),
+          const SizedBox(height: 8),
+          _readField(e?.typeName ?? '', 'Type'),
+        ],
       ),
     );
   }
@@ -288,100 +249,60 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
         ),
       );
 
-  InputDecoration _decoration(String hint) {
-    OutlineInputBorder border(Color c) => OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: c),
-        );
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
-      filled: true,
-      fillColor: AppColors.fieldFill,
-      contentPadding:
-          const EdgeInsets.symmetric(vertical: 15, horizontal: 14),
-      enabledBorder: border(AppColors.fieldBorder),
-      border: border(AppColors.fieldBorder),
-      focusedBorder: border(AppColors.primary),
-      errorBorder: border(AppColors.primaryLight),
-      focusedErrorBorder: border(AppColors.primary),
+  BoxDecoration _fieldBox() => BoxDecoration(
+        color: AppColors.fieldFill,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.fieldBorder),
+      );
+
+  /// Read-only filled field (auto-filled from the selected employee).
+  Widget _readField(String value, String hint) {
+    final empty = value.trim().isEmpty;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 14),
+      decoration: _fieldBox(),
+      child: Text(
+        empty ? hint : value,
+        style: TextStyle(
+          fontSize: 14,
+          color: empty ? AppColors.textMuted : AppColors.textPrimary,
+          fontWeight: empty ? FontWeight.w400 : FontWeight.w600,
+        ),
+      ),
     );
   }
 
-  Widget _textField(
-    TextEditingController ctrl,
-    String hint, {
-    TextInputType? keyboard,
-    List<TextInputFormatter>? inputFormatters,
-  }) {
-    return TextFormField(
-      controller: ctrl,
-      keyboardType: keyboard,
-      inputFormatters: inputFormatters,
-      style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-      decoration: _decoration(hint),
-      validator: (v) =>
-          (v == null || v.trim().isEmpty) ? 'This field is required' : null,
-    );
-  }
-
-  Widget _employeeDropdown() {
-    return DropdownButtonFormField<String>(
-      initialValue: _selectedEmployeeId,
-      isExpanded: true,
-      icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
-      decoration: _decoration('Choose an employee...'),
-      hint: const Text('Choose an employee...',
-          style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
-      items: [
-        for (final e in MockData.employees)
-          DropdownMenuItem(value: e.id, child: Text('${e.name} (${e.id})')),
-      ],
-      onChanged: _onSelectEmployee,
-    );
-  }
-
-  Widget _stringDropdown({
-    required String? value,
-    required String hint,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return DropdownButtonFormField<String>(
-      initialValue: value,
-      isExpanded: true,
-      icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
-      decoration: _decoration(hint),
-      hint: Text(hint,
-          style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
-      items: [
-        for (final i in items) DropdownMenuItem(value: i, child: Text(i)),
-      ],
-      onChanged: onChanged,
-      validator: (v) => v == null ? 'Please select an option' : null,
-    );
-  }
-
-  Widget _dateField() {
-    final hasDate = _dateOfJoining != null;
+  Widget _employeePicker() {
+    final e = _selected;
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: _pickDate,
-      child: InputDecorator(
-        decoration: _decoration('Select date'),
+      onTap: _loading ? null : _pickEmployee,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+        decoration: _fieldBox(),
         child: Row(
           children: [
+            const Icon(Icons.search, size: 20, color: AppColors.textMuted),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                _dateLabel,
+                _loading
+                    ? 'Loading employees...'
+                    : _error != null
+                        ? _error!
+                        : e == null
+                            ? 'Choose an employee...'
+                            : '${e.name}  (ID ${e.customId})',
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 14,
-                  color: hasDate ? AppColors.textPrimary : AppColors.textMuted,
+                  color: e == null ? AppColors.textMuted : AppColors.textPrimary,
+                  fontWeight: e == null ? FontWeight.w400 : FontWeight.w600,
                 ),
               ),
             ),
-            const Icon(Icons.calendar_today_outlined,
-                size: 18, color: AppColors.textMuted),
+            const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
           ],
         ),
       ),
@@ -407,7 +328,7 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
           ],
         ),
         child: ElevatedButton.icon(
-          onPressed: _submit,
+          onPressed: _registerFace,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
             shadowColor: Colors.transparent,
@@ -415,15 +336,119 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          icon: const Icon(Icons.check, color: Colors.white),
+          icon: const Icon(Icons.face_retouching_natural, color: Colors.white),
           label: const Text(
-            'Register Employee',
+            'Register Face',
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
               color: Colors.white,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Searchable employee picker (handles the ~900-employee list).
+class _EmployeePickerSheet extends StatefulWidget {
+  const _EmployeePickerSheet({required this.employees});
+  final List<EmployeeListItem> employees;
+
+  @override
+  State<_EmployeePickerSheet> createState() => _EmployeePickerSheetState();
+}
+
+class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
+  String _q = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _q.trim().toLowerCase();
+    final list = q.isEmpty
+        ? widget.employees
+        : widget.employees
+            .where((e) =>
+                e.name.toLowerCase().contains(q) ||
+                e.customId.toString().contains(q) ||
+                e.departmentName.toLowerCase().contains(q))
+            .toList();
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.8,
+        child: Column(
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.fieldFill,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.fieldBorder),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search, color: AppColors.textMuted),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        autofocus: true,
+                        onChanged: (v) => setState(() => _q = v),
+                        decoration: const InputDecoration(
+                          isCollapsed: true,
+                          border: InputBorder.none,
+                          hintText: 'Search name, ID, department...',
+                          hintStyle: TextStyle(color: AppColors.textMuted),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 1, color: AppColors.divider),
+            Expanded(
+              child: list.isEmpty
+                  ? Center(
+                      child: Text('No employees found',
+                          style: TextStyle(color: AppColors.textSecondary)))
+                  : ListView.separated(
+                      itemCount: list.length,
+                      separatorBuilder: (_, __) =>
+                          const Divider(height: 1, color: AppColors.divider),
+                      itemBuilder: (_, i) {
+                        final e = list[i];
+                        return ListTile(
+                          leading: UserAvatar(name: e.name, radius: 20),
+                          title: Text(e.name.isEmpty ? 'Unnamed' : e.name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary)),
+                          subtitle: Text(
+                              'ID ${e.customId} • ${e.departmentName}',
+                              style:
+                                  TextStyle(color: AppColors.textSecondary)),
+                          onTap: () => Navigator.pop(context, e),
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
       ),
     );
