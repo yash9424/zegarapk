@@ -5,6 +5,8 @@ import '../../models/api_models.dart';
 import '../../services/mock_auth.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/time_format.dart';
+import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/zegar_logo.dart';
 import 'employee_directory_page.dart';
@@ -16,24 +18,13 @@ class AdminHomePage extends StatelessWidget {
 
   final AuthUser user;
 
-  void _soon(BuildContext context, String label) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('$label — coming soon'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-  }
-
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       bottom: false,
       child: Column(
         children: [
-          const _AppBar(),
+          _AppBar(name: user.name),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
@@ -130,7 +121,7 @@ class AdminHomePage extends StatelessWidget {
         ),
         const Spacer(),
         GestureDetector(
-          onTap: () => _soon(context, 'View All'),
+          onTap: () => adminTab.value = 1,
           child: const Text(
             'View All',
             style: TextStyle(
@@ -146,7 +137,9 @@ class AdminHomePage extends StatelessWidget {
 }
 
 class _AppBar extends StatelessWidget {
-  const _AppBar();
+  const _AppBar({required this.name});
+
+  final String name;
 
   @override
   Widget build(BuildContext context) {
@@ -162,12 +155,9 @@ class _AppBar extends StatelessWidget {
           const Spacer(),
           const ZegarLogo(fontSize: 22),
           const Spacer(),
-          const UserAvatar(
-            name: MockData.adminName,
-            imageUrl: MockData.adminAvatar,
-            radius: 20,
-            ring: true,
-          ),
+          // Real logged-in admin (initials avatar) — the API exposes no
+          // profile photo URL, so this mirrors the other screens' app bars.
+          UserAvatar(name: name, radius: 20, ring: true),
         ],
       ),
     );
@@ -375,7 +365,13 @@ class _DailyAttendanceLiveState extends State<_DailyAttendanceLive> {
   @override
   void initState() {
     super.initState();
-    _future = ZedgiftApi.instance.recentPunches();
+    // Ask the backend for today's punches explicitly (matches the Attendance
+    // tab) so the section reflects the current day rather than a default that
+    // can come back empty.
+    final n = DateTime.now();
+    String two(int x) => x.toString().padLeft(2, '0');
+    final today = '${n.year}-${two(n.month)}-${two(n.day)}';
+    _future = ZedgiftApi.instance.recentPunches(date: today);
   }
 
   @override
@@ -405,7 +401,7 @@ class _DailyAttendanceLiveState extends State<_DailyAttendanceLive> {
               avatarUrl: '',
               location:
                   p.departmentName.isEmpty ? '—' : p.departmentName,
-              time: p.isIn ? p.dutyIn : p.dutyOut,
+              time: to12Hour(p.isIn ? p.dutyIn : p.dutyOut),
               clockedIn: p.isIn,
             ));
         return Column(

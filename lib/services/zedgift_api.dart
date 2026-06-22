@@ -127,8 +127,13 @@ class ZedgiftApi {
 
   // ---- Attendance --------------------------------------------------------
 
-  Future<List<RecentPunch>> recentPunches() async {
-    final data = await _c.get('attendance/recent');
+  /// Recent punches. When [date] (format `yyyy-MM-dd`) is given it asks the
+  /// backend for that day's attendance; without it the server returns today's.
+  Future<List<RecentPunch>> recentPunches({String? date}) async {
+    final data = await _c.get(
+      'attendance/recent',
+      query: {if (date != null && date.isNotEmpty) 'date': date},
+    );
     return _list(data).map(RecentPunch.fromJson).toList();
   }
 
