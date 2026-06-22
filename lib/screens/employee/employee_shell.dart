@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../data/mock_data.dart';
 import '../../services/mock_auth.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_drawer.dart';
@@ -50,9 +49,11 @@ class _EmployeeShellState extends State<EmployeeShell> {
     return Scaffold(
       backgroundColor: AppColors.scaffold,
       drawer: AppDrawer(
-        name: MockData.employeeName,
-        subtitle: MockData.employeeRole,
-        avatarUrl: MockData.employeeAvatar,
+        name: widget.user.name,
+        subtitle: widget.user.email.isNotEmpty
+            ? widget.user.email
+            : 'Employee',
+        avatarUrl: '',
         entries: [
           DrawerEntry(
               Icons.home_outlined, 'Home', () => employeeTab.value = 0),

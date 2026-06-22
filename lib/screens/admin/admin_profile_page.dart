@@ -230,7 +230,8 @@ class AdminProfilePage extends StatelessWidget {
   Widget _logoutButton(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
-      onTap: () => confirmAndLogout(context),
+      onTap: () =>
+          confirmAndLogout(Navigator.of(context, rootNavigator: true)),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         decoration: BoxDecoration(

@@ -64,8 +64,9 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage> {
               title: const Text('Log Out',
                   style: TextStyle(color: AppColors.primary)),
               onTap: () {
+                final navigator = Navigator.of(context, rootNavigator: true);
                 Navigator.pop(sheetContext);
-                confirmAndLogout(context);
+                confirmAndLogout(navigator);
               },
             ),
             const SizedBox(height: 8),

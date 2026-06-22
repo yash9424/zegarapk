@@ -12,6 +12,9 @@ class DrawerEntry {
   final VoidCallback onTap;
 }
 
+/// Placeholder tap handler for the Log Out entry (handled in `_tile`).
+void _noop() {}
+
 /// Shared navigation drawer with a staggered slide-in animation, page links
 /// and a logout action. Used by both the admin and employee panels.
 class AppDrawer extends StatefulWidget {
@@ -68,7 +71,9 @@ class _AppDrawerState extends State<AppDrawer>
   Widget build(BuildContext context) {
     final all = [
       ...widget.entries,
-      DrawerEntry(Icons.logout, 'Log Out', () => confirmAndLogout(context)),
+      // onTap is handled specially in _tile (isLogout) so it can capture the
+      // root navigator before the drawer closes.
+      const DrawerEntry(Icons.logout, 'Log Out', _noop),
     ];
 
     return Drawer(
@@ -144,6 +149,14 @@ class _AppDrawerState extends State<AppDrawer>
         ),
       ),
       onTap: () {
+        if (isLogout) {
+          // Capture the root navigator BEFORE closing the drawer — otherwise
+          // the drawer's context is torn down and the logout never runs.
+          final navigator = Navigator.of(context, rootNavigator: true);
+          Navigator.pop(context); // close the drawer
+          confirmAndLogout(navigator);
+          return;
+        }
         Navigator.pop(context); // close the drawer
         e.onTap();
       },
@@ -151,10 +164,12 @@ class _AppDrawerState extends State<AppDrawer>
   }
 }
 
-/// Shows a confirmation dialog and, if confirmed, returns to the login screen.
-Future<void> confirmAndLogout(BuildContext context) async {
+/// Shows a confirmation dialog and, if confirmed, signs the admin out and
+/// returns to the login screen. Takes the (root) [navigator] so it keeps
+/// working even though the drawer that triggered it has already closed.
+Future<void> confirmAndLogout(NavigatorState navigator) async {
   final ok = await showDialog<bool>(
-    context: context,
+    context: navigator.context,
     builder: (dialogContext) => AlertDialog(
       shape:
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -177,11 +192,10 @@ Future<void> confirmAndLogout(BuildContext context) async {
     ),
   );
 
-  if (ok == true && context.mounted) {
-    MockAuth.instance.logout();
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
-      (route) => false,
-    );
-  }
+  if (ok != true) return;
+  await MockAuth.instance.logout();
+  navigator.pushAndRemoveUntil(
+    MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+    (route) => false,
+  );
 }

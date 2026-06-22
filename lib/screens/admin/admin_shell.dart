@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../services/mock_auth.dart';
 import '../../theme/app_theme.dart';
-import '../../data/mock_data.dart';
 import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/app_drawer.dart';
 import 'admin_attendance_page.dart';
@@ -52,9 +51,11 @@ class _AdminShellState extends State<AdminShell> {
     return Scaffold(
       backgroundColor: AppColors.scaffold,
       drawer: AppDrawer(
-        name: MockData.adminName,
-        subtitle: 'Administrator',
-        avatarUrl: MockData.adminAvatar,
+        name: widget.user.name,
+        subtitle: widget.user.email.isNotEmpty
+            ? widget.user.email
+            : 'Administrator',
+        avatarUrl: '',
         entries: [
           DrawerEntry(Icons.home_outlined, 'Home', () => adminTab.value = 0),
           DrawerEntry(
