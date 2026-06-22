@@ -31,7 +31,7 @@ class _MarkAttendancePageState extends State<MarkAttendancePage> {
   @override
   void initState() {
     super.initState();
-    if (ApiClient.instance.isAuthenticated) {
+    if (ApiClient.instance.hasDeviceAccess) {
       _load();
     } else {
       _loading = false;

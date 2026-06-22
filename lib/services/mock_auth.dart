@@ -102,11 +102,12 @@ class MockAuth {
     }
   }
 
-  /// Full sign-out (only when the user taps Log Out): clears the session,
-  /// the saved token, and the saved user.
+  /// Admin sign-out (when the user taps Log Out): clears the admin session and
+  /// saved user so the panel is locked again. The device stays authorized for
+  /// kiosk attendance, so "Mark Attendance" keeps working without re-login.
   Future<void> logout() async {
     currentUser = null;
-    await ApiClient.instance.saveToken(null);
+    await ApiClient.instance.signOutAdmin();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kName);
     await prefs.remove(_kEmail);

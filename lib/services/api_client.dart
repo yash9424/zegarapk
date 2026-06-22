@@ -27,36 +27,70 @@ class ApiClient {
 
   final http.Client _http = http.Client();
 
-  String? _token;
+  // The app keeps TWO tokens, both set at login from the same access token:
+  //  * session token  — gates the admin panel; cleared on Log Out.
+  //  * device token    — authorizes this device for kiosk attendance; it
+  //                      survives Log Out so "Mark Attendance" keeps working.
+  String? _token; // admin session
+  String? _deviceToken; // kiosk / attendance
   static const String _tokenKey = 'zedgift_access_token';
+  static const String _deviceKey = 'zedgift_device_token';
 
-  /// True once a successful login has stored a Bearer token.
+  /// True while an admin session is active (used to gate the admin panel).
   bool get isAuthenticated => _token != null && _token!.isNotEmpty;
+
+  /// True if this device can reach the API for attendance — either an admin
+  /// is logged in, or it was set up once and still holds a device token.
+  bool get hasDeviceAccess => _effectiveToken != null;
+
+  String? get _effectiveToken {
+    if (_token != null && _token!.isNotEmpty) return _token;
+    if (_deviceToken != null && _deviceToken!.isNotEmpty) return _deviceToken;
+    return null;
+  }
 
   /// The company whose data calls return. Defaults to the configured one but
   /// can be switched at runtime (e.g. from the employee-list company filter).
   String companyId = ApiConfig.companyId;
 
-  /// Store / clear the access token in memory for the current session.
+  /// Store the access token in memory for the current session.
   void setToken(String? token) => _token = token;
 
-  /// Persist (or clear) the token on the device so a kiosk stays logged in
-  /// across app restarts.
-  Future<void> saveToken(String? token) async {
-    setToken(token);
+  /// Persist the login token on the device (both the admin session token and
+  /// the long-lived device token) so a kiosk stays authorized across restarts.
+  Future<void> saveToken(String token) async {
+    _token = token;
+    _deviceToken = token;
     final prefs = await SharedPreferences.getInstance();
-    if (token == null || token.isEmpty) {
-      await prefs.remove(_tokenKey);
-    } else {
-      await prefs.setString(_tokenKey, token);
-    }
+    await prefs.setString(_tokenKey, token);
+    await prefs.setString(_deviceKey, token);
   }
 
-  /// Load any previously saved token into memory (call once at startup).
+  /// Sign the admin out of the panel but KEEP the device authorized for
+  /// attendance. Only clears the session token, not the device token.
+  Future<void> signOutAdmin() async {
+    _token = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+  }
+
+  /// Fully de-authorize this device (clears every token). Use for a
+  /// "reset device" action.
+  Future<void> clearDevice() async {
+    _token = null;
+    _deviceToken = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_deviceKey);
+  }
+
+  /// Load any previously saved tokens into memory (call once at startup).
   Future<void> restoreToken() async {
     final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_tokenKey);
-    if (saved != null && saved.isNotEmpty) _token = saved;
+    final session = prefs.getString(_tokenKey);
+    final device = prefs.getString(_deviceKey);
+    if (session != null && session.isNotEmpty) _token = session;
+    if (device != null && device.isNotEmpty) _deviceToken = device;
   }
 
   Map<String, String> _headers({bool auth = true, bool jsonBody = false}) {
@@ -65,7 +99,8 @@ class ApiClient {
       'Company-ID': companyId,
     };
     if (jsonBody) h['Content-Type'] = 'application/json';
-    if (auth && isAuthenticated) h['Authorization'] = 'Bearer $_token';
+    final token = _effectiveToken;
+    if (auth && token != null) h['Authorization'] = 'Bearer $token';
     return h;
   }
 

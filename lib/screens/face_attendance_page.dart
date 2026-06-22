@@ -36,7 +36,7 @@ class _FaceAttendancePageState extends State<FaceAttendancePage> {
   }
 
   Future<void> _init() async {
-    if (!ApiClient.instance.isAuthenticated) {
+    if (!ApiClient.instance.hasDeviceAccess) {
       setState(() {
         _initializing = false;
         _fatal = 'This device is not set up.\nAn admin must log in once.';
