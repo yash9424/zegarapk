@@ -61,6 +61,70 @@ class ZedgiftApi {
     return _list(data);
   }
 
+  /// Apply a leave on behalf of [employeeId]. Dates are `dd/MM/yyyy`, times
+  /// are `hh:mm AM/PM` (the format the backend's create form expects).
+  /// Endpoint: `POST /leaves`. Saves with status = 0 (Pending).
+  Future<void> createLeave({
+    required int employeeId,
+    required String startDate,
+    required String endDate,
+    required String startTime,
+    required String endTime,
+    required String reason,
+  }) async {
+    await _c.postForm('leaves', {
+      'employee_id': employeeId.toString(),
+      'start_date': startDate,
+      'end_date': endDate,
+      'start_time': startTime,
+      'end_time': endTime,
+      'leave_reason': reason,
+    });
+  }
+
+  /// Edit an existing leave. Endpoint: `PUT /leaves/{id}` (values in query).
+  Future<void> updateLeave(
+    int id, {
+    required int employeeId,
+    required String startDate,
+    required String endDate,
+    required String startTime,
+    required String endTime,
+    required String reason,
+  }) async {
+    await _c.put('leaves/$id', query: {
+      'employee_id': employeeId,
+      'start_date': startDate,
+      'end_date': endDate,
+      'start_time': startTime,
+      'end_time': endTime,
+      'leave_reason': reason,
+    });
+  }
+
+  /// Remove a leave. Endpoint: `DELETE /leaves/{id}`.
+  Future<void> deleteLeave(int id) async {
+    await _c.delete('leaves/$id');
+  }
+
+  /// Approve (1) or reject (2) a leave. A [remark] is required when rejecting.
+  /// Endpoint: `POST /leaves/approval?leave_id=&status=&remark=`.
+  Future<void> approveLeave(
+    int id, {
+    required int status,
+    String? remark,
+  }) async {
+    await _c.postForm(
+      'leaves/approval',
+      const <String, String>{},
+      query: {
+        'leave_id': id,
+        'status': status,
+        if (remark != null && remark.trim().isNotEmpty) 'remark': remark.trim(),
+      },
+    );
+  }
+
   // ---- Attendance --------------------------------------------------------
 
   Future<List<RecentPunch>> recentPunches() async {

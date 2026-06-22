@@ -117,6 +117,10 @@ class LeaveRequest {
     required this.reason,
     required this.footerNote,
     this.rejectionNote,
+    this.leaveId = 0,
+    this.empNumId = 0,
+    this.rawStart = '',
+    this.rawEnd = '',
   });
 
   final String name;
@@ -131,6 +135,13 @@ class LeaveRequest {
   final String reason;
   final String footerNote;
   final String? rejectionNote;
+
+  // Identifiers + raw dates used to call the API (approve/edit/delete).
+  // 0 / '' for the static mock entries; populated from the live `/leaves` rows.
+  final int leaveId; // leave row id
+  final int empNumId; // numeric employee_id
+  final String rawStart; // e.g. "2026-06-20 08:00:00"
+  final String rawEnd;
 }
 
 class AttendanceRecord {

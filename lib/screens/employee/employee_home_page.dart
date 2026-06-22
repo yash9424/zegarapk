@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/employee_bottom_nav.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/zegar_logo.dart';
+import '../leave_form_page.dart';
 import 'employee_announcements_page.dart';
 import 'employee_my_attendance_page.dart';
 
@@ -41,8 +42,9 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
 
   // Quick action handlers.
   void _openLeave() {
-    employeeProfileTab.value = 1; // Leave Requests tab
-    employeeTab.value = 2; // Profile tab
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const LeaveFormPage()),
+    );
   }
 
   void _openPayslips() {

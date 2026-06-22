@@ -90,15 +90,17 @@ class ApiClient {
 
   /// POST sending `multipart/form-data` (the backend's login/punch/face all
   /// use form fields, not JSON). [files] maps a field name to a local file
-  /// path and is sent as a file part (e.g. `face_image`).
+  /// path and is sent as a file part (e.g. `face_image`). [query] adds URL
+  /// query params (some POST endpoints, e.g. leave approval, read from there).
   Future<dynamic> postForm(
     String path,
     Map<String, String> fields, {
     bool auth = true,
     Map<String, String>? files,
+    Map<String, dynamic>? query,
   }) async {
     return _send(() async {
-      final req = http.MultipartRequest('POST', _uri(path))
+      final req = http.MultipartRequest('POST', _uri(path, query))
         ..headers.addAll(_headers(auth: auth))
         ..fields.addAll(fields);
       if (files != null) {
@@ -110,6 +112,21 @@ class ApiClient {
       final streamed = await req.send().timeout(ApiConfig.timeout);
       return http.Response.fromStream(streamed);
     });
+  }
+
+  /// PUT with values passed as URL query params (the backend's update
+  /// endpoints, e.g. `PUT /leaves/{id}`, read fields from the query string).
+  Future<dynamic> put(String path, {Map<String, dynamic>? query}) async {
+    return _send(() => _http
+        .put(_uri(path, query), headers: _headers())
+        .timeout(ApiConfig.timeout));
+  }
+
+  /// DELETE a resource (e.g. `DELETE /leaves/{id}`).
+  Future<dynamic> delete(String path, {Map<String, dynamic>? query}) async {
+    return _send(() => _http
+        .delete(_uri(path, query), headers: _headers())
+        .timeout(ApiConfig.timeout));
   }
 
   // ---- Core --------------------------------------------------------------

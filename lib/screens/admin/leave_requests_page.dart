@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/zegar_logo.dart';
+import '../leave_form_page.dart';
 
 class LeaveRequestsPage extends StatefulWidget {
   const LeaveRequestsPage({super.key});
@@ -60,10 +61,24 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
       .where((r) => _filter == null || r.status == _filter)
       .toList();
 
+  Future<void> _newLeave() async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (_) => const LeaveFormPage()),
+    );
+    if (created == true) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffold,
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        onPressed: _newLeave,
+        icon: const Icon(Icons.add),
+        label: const Text('New Leave'),
+      ),
       bottomNavigationBar: AdminBottomNav(
         currentIndex: 0,
         onTap: (i) => goToAdminTab(context, i),
@@ -119,8 +134,11 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         itemCount: list.length,
         separatorBuilder: (context, index) => const SizedBox(height: 14),
-        itemBuilder: (context, i) =>
-            _LeaveCard(request: list[i], initiallyExpanded: i < 2),
+        itemBuilder: (context, i) => _LeaveCard(
+          request: list[i],
+          initiallyExpanded: i < 2,
+          onChanged: _load,
+        ),
       ),
     );
   }
@@ -155,7 +173,14 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
 
     final from = s(['from_date', 'start_date', 'leave_from', 'date_from']);
     final to = s(['to_date', 'end_date', 'leave_to', 'date_to']);
-    final range = [from, to].where((e) => e.isNotEmpty).join(' - ');
+    // Show just the date part (drop any trailing time) in the range label.
+    String dateOnly(String v) => v.contains(' ') ? v.split(' ').first : v;
+    final range = [dateOnly(from), dateOnly(to)]
+        .where((e) => e.isNotEmpty)
+        .join(' - ');
+
+    final empNumId = int.tryParse(s(['employee_id'])) ??
+        (emp == null ? 0 : int.tryParse(emp['id']?.toString() ?? '') ?? 0);
 
     return LeaveRequest(
       name: name.isEmpty ? 'Employee' : name,
@@ -168,9 +193,13 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
       ref: '#${s(['id', 'ref'])}',
       status: status,
       dateRange: range.isEmpty ? s(['date', 'dates']) : range,
-      duration: s(['days', 'duration', 'total_days']),
-      reason: s(['reason', 'note', 'remark']),
+      duration: s(['days', 'duration', 'total_leave_days', 'total_days']),
+      reason: s(['leave_reason', 'reason', 'note', 'remark']),
       footerNote: s(['created_at', 'applied_at']),
+      leaveId: int.tryParse(s(['id'])) ?? 0,
+      empNumId: empNumId,
+      rawStart: from,
+      rawEnd: to,
     );
   }
 
@@ -277,8 +306,13 @@ _StatusStyle _statusStyle(LeaveStatus s) {
 // ---- Card ----------------------------------------------------------------
 
 class _LeaveCard extends StatefulWidget {
-  const _LeaveCard({required this.request, this.initiallyExpanded = true});
+  const _LeaveCard({
+    required this.request,
+    required this.onChanged,
+    this.initiallyExpanded = true,
+  });
   final LeaveRequest request;
+  final VoidCallback onChanged;
   final bool initiallyExpanded;
 
   @override
@@ -343,7 +377,17 @@ class _LeaveCardState extends State<_LeaveCard> {
               title: const Text('Edit', style: TextStyle(fontWeight: FontWeight.w600)),
               onTap: () async {
                 Navigator.pop(ctx);
-                await _showEditDialog(r);
+                await _openEdit(r);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: AppColors.primary),
+              title: const Text('Delete',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600, color: AppColors.primary)),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await _confirmDelete(r);
               },
             ),
             const SizedBox(height: 8),
@@ -353,7 +397,16 @@ class _LeaveCardState extends State<_LeaveCard> {
     );
   }
 
+  /// Leaves loaded from the live API carry a real [leaveId]; the static demo
+  /// rows don't, so actions are only available on real records.
+  bool _guardLive(LeaveRequest r) {
+    if (r.leaveId > 0) return true;
+    _snack('This action is only available on live leave records.');
+    return false;
+  }
+
   Future<void> _confirmApprove(LeaveRequest r) async {
+    if (!_guardLive(r)) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -375,10 +428,19 @@ class _LeaveCardState extends State<_LeaveCard> {
         ],
       ),
     );
-    if (ok == true && mounted) _snack('✓ Leave approved for ${r.name}');
+    if (ok != true) return;
+    try {
+      await ZedgiftApi.instance.approveLeave(r.leaveId, status: 1);
+      if (!mounted) return;
+      _snack('✓ Leave approved for ${r.name}');
+      widget.onChanged();
+    } catch (_) {
+      _snack('Could not approve. Please try again.');
+    }
   }
 
   Future<void> _showRejectDialog(LeaveRequest r) async {
+    if (!_guardLive(r)) return;
     final ctrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
@@ -424,31 +486,50 @@ class _LeaveCardState extends State<_LeaveCard> {
         ],
       ),
     );
+    final note = ctrl.text.trim();
     ctrl.dispose();
-    if (ok == true && mounted) _snack('✗ Leave rejected for ${r.name}');
+    if (ok != true) return;
+    try {
+      await ZedgiftApi.instance
+          .approveLeave(r.leaveId, status: 2, remark: note);
+      if (!mounted) return;
+      _snack('✗ Leave rejected for ${r.name}');
+      widget.onChanged();
+    } catch (_) {
+      _snack('Could not reject. Please try again.');
+    }
   }
 
-  Future<void> _showEditDialog(LeaveRequest r) async {
-    final ctrl = TextEditingController(text: r.reason);
+  Future<void> _openEdit(LeaveRequest r) async {
+    if (!_guardLive(r)) return;
+    final start = parseApiDateTime(r.rawStart);
+    final end = parseApiDateTime(r.rawEnd);
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => LeaveFormPage(
+          editLeaveId: r.leaveId,
+          fixedEmployeeId: r.empNumId,
+          fixedEmployeeName: r.name,
+          initialStart: start,
+          initialEnd: end,
+          initialStartTime: start == null ? null : TimeOfDay.fromDateTime(start),
+          initialEndTime: end == null ? null : TimeOfDay.fromDateTime(end),
+          initialReason: r.reason,
+        ),
+      ),
+    );
+    if (changed == true) widget.onChanged();
+  }
+
+  Future<void> _confirmDelete(LeaveRequest r) async {
+    if (!_guardLive(r)) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Edit Leave Request',
+        title: const Text('Delete Leave?',
             style: TextStyle(fontWeight: FontWeight.w700)),
-        content: TextField(
-          controller: ctrl,
-          maxLines: 3,
-          decoration: InputDecoration(
-            labelText: 'Reason',
-            filled: true,
-            fillColor: AppColors.fieldFill,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
+        content: Text('Permanently delete ${r.leaveType} for ${r.name}?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -456,15 +537,21 @@ class _LeaveCardState extends State<_LeaveCard> {
                   style: TextStyle(color: AppColors.textSecondary))),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Save',
+              child: const Text('Delete',
                   style: TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700))),
+                      color: AppColors.primary, fontWeight: FontWeight.w700))),
         ],
       ),
     );
-    ctrl.dispose();
-    if (ok == true && mounted) _snack('Leave request updated (mock)');
+    if (ok != true) return;
+    try {
+      await ZedgiftApi.instance.deleteLeave(r.leaveId);
+      if (!mounted) return;
+      _snack('Leave deleted.');
+      widget.onChanged();
+    } catch (_) {
+      _snack('Could not delete. Please try again.');
+    }
   }
 
   @override
@@ -741,7 +828,7 @@ class _LeaveCardState extends State<_LeaveCard> {
         ),
         if (r.status == LeaveStatus.pending) ...[
           _smallButton('Edit', AppColors.fieldFill, AppColors.textPrimary,
-              () => _showEditDialog(r)),
+              () => _openEdit(r)),
           const SizedBox(width: 8),
           _smallButton('Review', AppColors.softRedTint, AppColors.primary,
               () => _showActions(r)),
