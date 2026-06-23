@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../models/api_models.dart';
-import '../../services/api_client.dart';
 import '../../services/mock_auth.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
@@ -20,7 +19,6 @@ class _AttRow {
     required this.name,
     required this.customId,
     required this.departmentName,
-    required this.companyName,
     required this.dutyIn,
     required this.dutyOut,
     required this.status,
@@ -30,7 +28,6 @@ class _AttRow {
   final String name;
   final int customId;
   final String departmentName;
-  final String companyName;
   final String dutyIn;
   final String dutyOut;
   final String status; // "in" / "out" / "" (absent)
@@ -54,11 +51,18 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
   String? _error;
 
   DateTime _date = _today();
-  List<Company> _companies = const [];
-  late String _companyId = ApiClient.instance.companyId;
-  bool _allCompanies = false;
+  final ScrollController _dayScroll = ScrollController();
 
   List<_AttRow> _rows = const [];
+
+  static const _monthNames = [
+    'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY',
+    'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
+  ];
+  static const _weekdayShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  /// Day-cell width + horizontal margin — used to auto-scroll to the selection.
+  static const double _dayCellExtent = 58;
 
   static DateTime _today() {
     final n = DateTime.now();
@@ -67,26 +71,25 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
 
   static String _two(int n) => n.toString().padLeft(2, '0');
 
-  /// Display format the client asked for: dd-mm-yyyy.
-  String get _dateLabel => '${_two(_date.day)}-${_two(_date.month)}-${_date.year}';
-
-  /// Format the backend expects in the query string.
+  /// Format the backend expects in the query string: yyyy-MM-dd.
   String get _dateParam => '${_date.year}-${_two(_date.month)}-${_two(_date.day)}';
 
-  bool get _isToday {
-    final t = _today();
-    return _date.year == t.year && _date.month == t.month && _date.day == t.day;
-  }
+  /// "OCTOBER 2025" — the month-dropdown label.
+  String get _monthLabel => '${_monthNames[_date.month - 1]} ${_date.year}';
+
+  int get _daysInMonth => DateTime(_date.year, _date.month + 1, 0).day;
 
   @override
   void initState() {
     super.initState();
     _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelectedDay());
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _dayScroll.dispose();
     super.dispose();
   }
 
@@ -95,58 +98,26 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
       _loading = true;
       _error = null;
     });
-    final original = ApiClient.instance.companyId;
     try {
-      if (_companies.isEmpty) {
-        try {
-          _companies = await ZedgiftApi.instance.companies();
-        } catch (_) {
-          // Some deployments have a single company / no list endpoint.
-          _companies = const [];
-        }
-      }
-
-      // Which companies to pull. "All Companies" loops every one and tags
-      // each row, so the admin sees everyone at once.
-      final List<Company> targets;
-      if (_companies.isEmpty) {
-        targets = [
-          Company(id: int.tryParse(original) ?? 0, name: 'Company'),
-        ];
-      } else if (_allCompanies) {
-        targets = _companies;
-      } else {
-        targets = [
-          _companies.firstWhere(
-            (c) => c.id.toString() == _companyId,
-            orElse: () => _companies.first,
-          ),
-        ];
-      }
-
+      final results = await Future.wait([
+        ZedgiftApi.instance.employees(),
+        ZedgiftApi.instance.recentPunches(date: _dateParam),
+      ]);
+      final emps = results[0] as List<EmployeeListItem>;
+      final punches = results[1] as List<RecentPunch>;
+      final byId = {for (final p in punches) p.employeeId: p};
       final rows = <_AttRow>[];
-      for (final c in targets) {
-        ApiClient.instance.companyId = c.id.toString();
-        final results = await Future.wait([
-          ZedgiftApi.instance.employees(),
-          ZedgiftApi.instance.recentPunches(date: _dateParam),
-        ]);
-        final emps = results[0] as List<EmployeeListItem>;
-        final punches = results[1] as List<RecentPunch>;
-        final byId = {for (final p in punches) p.employeeId: p};
-        for (final e in emps) {
-          final p = byId[e.id];
-          rows.add(_AttRow(
-            id: e.id,
-            name: e.name.isEmpty ? 'Unnamed' : e.name,
-            customId: e.customId,
-            departmentName: e.departmentName,
-            companyName: c.name,
-            dutyIn: p?.dutyIn ?? '',
-            dutyOut: p?.dutyOut ?? '',
-            status: p?.status ?? '',
-          ));
-        }
+      for (final e in emps) {
+        final p = byId[e.id];
+        rows.add(_AttRow(
+          id: e.id,
+          name: e.name.isEmpty ? 'Unnamed' : e.name,
+          customId: e.customId,
+          departmentName: e.departmentName,
+          dutyIn: p?.dutyIn ?? '',
+          dutyOut: p?.dutyOut ?? '',
+          status: p?.status ?? '',
+        ));
       }
 
       if (!mounted) return;
@@ -160,8 +131,6 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
         _error = 'Could not load attendance. Pull to retry.';
         _loading = false;
       });
-    } finally {
-      ApiClient.instance.companyId = original;
     }
   }
 
@@ -171,120 +140,42 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
     return _rows.where((r) {
       return r.name.toLowerCase().contains(q) ||
           r.departmentName.toLowerCase().contains(q) ||
-          r.companyName.toLowerCase().contains(q) ||
           r.customId.toString().contains(q);
     }).toList();
   }
 
-  Future<void> _pickDate() async {
+  void _scrollToSelectedDay() {
+    if (!_dayScroll.hasClients) return;
+    final target = (_date.day - 1) * _dayCellExtent - 90;
+    _dayScroll.jumpTo(target.clamp(0.0, _dayScroll.position.maxScrollExtent));
+  }
+
+  void _selectDay(DateTime day) {
+    if (day == _date) return;
+    setState(() => _date = day);
+    _load();
+  }
+
+  /// Month/year dropdown — opens the native picker so the admin can jump to
+  /// any month, then the day strip re-renders for that month.
+  Future<void> _pickMonth() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: _date,
       firstDate: DateTime(2020),
       lastDate: _today(),
-      helpText: 'Select attendance date',
+      helpText: 'Select date',
+      initialDatePickerMode: DatePickerMode.year,
     );
     if (picked != null) {
       final d = DateTime(picked.year, picked.month, picked.day);
       if (d != _date) {
         setState(() => _date = d);
         _load();
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _scrollToSelectedDay());
       }
     }
-  }
-
-  Future<void> _pickCompany() async {
-    // Options: All Companies (aggregate) + each company.
-    final labels = <String>['All Companies', for (final c in _companies) c.name];
-    final current = _allCompanies
-        ? 0
-        : 1 + _companies.indexWhere((c) => c.id.toString() == _companyId);
-
-    final r = await showModalBottomSheet<int>(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 4, 20, 10),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Select Company',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-              ),
-            ),
-            const Divider(height: 1, color: AppColors.divider),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: labels.length,
-                itemBuilder: (_, i) {
-                  final sel = i == current;
-                  return ListTile(
-                    leading: Icon(
-                      i == 0 ? Icons.public : Icons.apartment,
-                      color: sel ? AppColors.primary : AppColors.textMuted,
-                    ),
-                    title: Text(labels[i],
-                        style: TextStyle(
-                          fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                          color:
-                              sel ? AppColors.primary : AppColors.textPrimary,
-                        )),
-                    trailing: sel
-                        ? const Icon(Icons.check, color: AppColors.primary)
-                        : null,
-                    onTap: () => Navigator.pop(ctx, i),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-
-    if (r == null) return;
-    if (r == 0) {
-      if (!_allCompanies) {
-        setState(() => _allCompanies = true);
-        _load();
-      }
-    } else {
-      final id = _companies[r - 1].id.toString();
-      if (_allCompanies || id != _companyId) {
-        setState(() {
-          _allCompanies = false;
-          _companyId = id;
-        });
-        _load();
-      }
-    }
-  }
-
-  String get _companyLabel {
-    if (_allCompanies) return 'All Companies';
-    if (_companies.isEmpty) return 'Company';
-    return _companies
-        .firstWhere((c) => c.id.toString() == _companyId,
-            orElse: () => Company(id: 0, name: 'Company'))
-        .name;
   }
 
   @override
@@ -295,9 +186,10 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
         children: [
           _appBar(),
           _searchBar(),
-          const SizedBox(height: 10),
-          _filterRow(),
-          const SizedBox(height: 8),
+          const SizedBox(height: 14),
+          _dailyHeader(),
+          _calendarBar(),
+          const SizedBox(height: 12),
           Expanded(child: _content()),
         ],
       ),
@@ -329,6 +221,7 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
 
     final list = _filtered;
     final present = list.where((r) => r.present).length;
+    final absent = list.length - present;
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -336,7 +229,7 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          _statRow(present, list.length),
+          _statRow(present, absent, list.length),
           const SizedBox(height: 18),
           if (list.isEmpty)
             Padding(
@@ -344,63 +237,17 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
               child: Center(
                 child: Text('No employees found.',
                     style: TextStyle(
-                        color: AppColors.textSecondary, fontSize: 15)),
+                        color: AppColors.textSecondary, fontSize: 14)),
               ),
             )
-          else if (_allCompanies)
-            ..._grouped(list)
           else
             for (final r in list) ...[
-              _AttCard(row: r, showCompany: false),
+              _AttCard(row: r),
               const SizedBox(height: 14),
             ],
         ],
       ),
     );
-  }
-
-  /// Company-wise sections when viewing all companies at once.
-  List<Widget> _grouped(List<_AttRow> list) {
-    final byCompany = <String, List<_AttRow>>{};
-    for (final r in list) {
-      byCompany.putIfAbsent(r.companyName, () => []).add(r);
-    }
-    final widgets = <Widget>[];
-    final names = byCompany.keys.toList()..sort();
-    for (final name in names) {
-      final rows = byCompany[name]!;
-      final present = rows.where((r) => r.present).length;
-      widgets.add(Padding(
-        padding: const EdgeInsets.only(top: 4, bottom: 10),
-        child: Row(
-          children: [
-            const Icon(Icons.apartment, size: 18, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-            Text('$present/${rows.length}',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textSecondary)),
-          ],
-        ),
-      ));
-      for (final r in rows) {
-        widgets.add(_AttCard(row: r, showCompany: false));
-        widgets.add(const SizedBox(height: 14));
-      }
-      widgets.add(const SizedBox(height: 6));
-    }
-    return widgets;
   }
 
   Widget _appBar() {
@@ -439,80 +286,133 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
     );
   }
 
-  Widget _filterRow() {
-    return SizedBox(
-      height: 40,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+  /// "Daily Attendance" title with the month dropdown on the right.
+  Widget _dailyHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
+      child: Row(
         children: [
-          _chip(
-            label: _isToday ? 'Today ($_dateLabel)' : _dateLabel,
-            icon: Icons.calendar_today,
-            active: true,
-            onTap: _pickDate,
+          const Expanded(
+            child: Text(
+              'Daily Attendance',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
           ),
-          _chip(
-            label: _companyLabel,
-            icon: _allCompanies ? Icons.public : Icons.apartment,
-            active: true,
-            onTap: _pickCompany,
-          ),
+          const SizedBox(width: 12),
+          _monthDropdown(),
         ],
       ),
     );
   }
 
-  Widget _chip({
-    required String label,
-    required IconData icon,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: Material(
-        color: active ? AppColors.primary : AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: active ? AppColors.primary : AppColors.fieldBorder,
+  Widget _monthDropdown() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: _pickMonth,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.fieldBorder),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.calendar_today,
+                size: 15, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text(
+              _monthLabel,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon,
-                    size: 16, color: active ? Colors.white : AppColors.primary),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: active ? Colors.white : AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
+            const SizedBox(width: 2),
+            const Icon(Icons.keyboard_arrow_down,
+                size: 18, color: AppColors.textMuted),
+          ],
         ),
       ),
     );
   }
 
-  Widget _statRow(int present, int total) {
+  /// Horizontal day strip with the selected day highlighted.
+  Widget _calendarBar() {
+    return SizedBox(
+      height: 64,
+      child: ListView.builder(
+        controller: _dayScroll,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _daysInMonth,
+        itemBuilder: (_, i) => _dayCell(i + 1),
+      ),
+    );
+  }
+
+  Widget _dayCell(int day) {
+    final cellDate = DateTime(_date.year, _date.month, day);
+    final selected = day == _date.day;
+    final isFuture = cellDate.isAfter(_today());
+    final weekday = _weekdayShort[cellDate.weekday - 1];
+
+    return GestureDetector(
+      onTap: isFuture ? null : () => _selectDay(cellDate),
+      child: Container(
+        width: 50,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.fieldBorder,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              weekday,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: selected ? Colors.white70 : AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$day',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: selected
+                    ? Colors.white
+                    : isFuture
+                        ? AppColors.textMuted
+                        : AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statRow(int present, int absent, int total) {
     return Row(
       children: [
         Expanded(child: _statCard('PRESENT', '$present', AppColors.primary)),
-        const SizedBox(width: 14),
+        const SizedBox(width: 10),
+        Expanded(
+            child: _statCard('ABSENT', '$absent', const Color(0xFFB23A48))),
+        const SizedBox(width: 10),
         Expanded(
             child: _statCard('TOTAL', '$total', AppColors.textPrimary)),
       ],
@@ -521,7 +421,7 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
 
   Widget _statCard(String label, String value, Color valueColor) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(14),
@@ -533,17 +433,17 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
           Text(
             label,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
+              letterSpacing: 0.6,
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
-              fontSize: 26,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
               color: valueColor,
             ),
@@ -555,16 +455,14 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
 }
 
 class _AttCard extends StatelessWidget {
-  const _AttCard({required this.row, required this.showCompany});
+  const _AttCard({required this.row});
   final _AttRow row;
-  final bool showCompany;
 
   @override
   Widget build(BuildContext context) {
     final sub = [
       'ID ${row.customId}',
       if (row.departmentName.isNotEmpty) row.departmentName,
-      if (showCompany && row.companyName.isNotEmpty) row.companyName,
     ].join(' • ');
 
     return Material(
@@ -583,6 +481,7 @@ class _AttCard extends StatelessWidget {
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.fieldBorder),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -591,7 +490,7 @@ class _AttCard extends StatelessWidget {
               ),
             ],
           ),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Column(
             children: [
               Row(
@@ -605,7 +504,7 @@ class _AttCard extends StatelessWidget {
                         Text(
                           row.name,
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
                           ),
@@ -614,7 +513,7 @@ class _AttCard extends StatelessWidget {
                         Text(
                           sub,
                           style: TextStyle(
-                              fontSize: 13, color: AppColors.textSecondary),
+                              fontSize: 12, color: AppColors.textSecondary),
                         ),
                       ],
                     ),
@@ -664,7 +563,7 @@ class _AttCard extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
           color: color,
@@ -679,12 +578,12 @@ class _AttCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
           const SizedBox(height: 4),
           Text(
             value.isEmpty ? '—' : value,
             style: const TextStyle(
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
             ),
