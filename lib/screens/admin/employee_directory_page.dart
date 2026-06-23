@@ -6,6 +6,7 @@ import '../../services/mock_auth.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
+import '../../widgets/search_field.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/zegar_logo.dart';
 import 'employee_detail_page.dart';
@@ -190,37 +191,16 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
 
   Widget _searchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.fieldBorder),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: [
-            const Icon(Icons.search, color: AppColors.textMuted, size: 22),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: (v) => setState(() => _query = v),
-                style: const TextStyle(
-                    fontSize: 14, color: AppColors.textPrimary),
-                decoration: const InputDecoration(
-                  isCollapsed: true,
-                  border: InputBorder.none,
-                  hintText: 'Search employees, departments, or roles...',
-                  hintStyle:
-                      TextStyle(color: AppColors.textMuted, fontSize: 14),
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            const Icon(Icons.tune, color: AppColors.textMuted, size: 20),
-          ],
-        ),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: SearchField(
+        controller: _searchCtrl,
+        hint: 'Search employees, departments, or roles...',
+        onChanged: (v) => setState(() => _query = v),
+        onClear: () {
+          _searchCtrl.clear();
+          setState(() => _query = '');
+        },
+        hasText: _query.isNotEmpty,
       ),
     );
   }
