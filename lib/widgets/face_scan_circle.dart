@@ -5,10 +5,18 @@ import '../theme/app_theme.dart';
 /// The circular face-capture preview: a photo with a red ring, a dashed
 /// inner guide circle and corner focus brackets — like the screenshot.
 class FaceScanCircle extends StatelessWidget {
-  const FaceScanCircle({super.key, required this.imageUrl, this.size = 240});
+  const FaceScanCircle({
+    super.key,
+    required this.imageUrl,
+    this.size = 240,
+    this.placeholderIcon = Icons.person,
+  });
 
   final String imageUrl;
   final double size;
+
+  /// Icon shown inside the circle when there's no photo to display.
+  final IconData placeholderIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +48,7 @@ class FaceScanCircle extends StatelessWidget {
                 webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                 errorBuilder: (context, error, stack) => Container(
                   color: const Color(0xFF2A3142),
-                  child: const Icon(Icons.person,
+                  child: Icon(placeholderIcon,
                       color: Colors.white54, size: 90),
                 ),
                 loadingBuilder: (context, child, progress) {

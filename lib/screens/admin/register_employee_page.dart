@@ -116,20 +116,27 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
                   const SizedBox(height: 6),
                   Center(
                     child: Text(
-                      'Select an employee, then scan to register the face.',
+                      'Select an employee, then tap the camera to register the face.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 14, color: AppColors.textSecondary),
                     ),
                   ),
                   const SizedBox(height: 22),
-                  const Center(child: FaceScanCircle(imageUrl: '')),
+                  Center(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(120),
+                      onTap: _registerFace,
+                      child: const FaceScanCircle(
+                        imageUrl: '',
+                        placeholderIcon: Icons.camera_alt,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   Center(child: _lightingBadge()),
                   const SizedBox(height: 24),
                   _formCard(),
-                  const SizedBox(height: 18),
-                  _registerButton(),
                 ],
               ),
             ),
@@ -213,26 +220,6 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
           _label('Name'),
           const SizedBox(height: 8),
           _readField(e?.name ?? '', 'Full name'),
-          const SizedBox(height: 18),
-          _label('Phone'),
-          const SizedBox(height: 8),
-          _readField(e?.phone ?? '', 'Phone'),
-          const SizedBox(height: 18),
-          _label('Department'),
-          const SizedBox(height: 8),
-          _readField(e?.departmentName ?? '', 'Department'),
-          const SizedBox(height: 18),
-          _label('Designation'),
-          const SizedBox(height: 8),
-          _readField(e?.designationName ?? '', 'Designation'),
-          const SizedBox(height: 18),
-          _label('Date Of Joining'),
-          const SizedBox(height: 8),
-          _readField(e?.doj ?? '', 'Date of joining'),
-          const SizedBox(height: 18),
-          _label('Type'),
-          const SizedBox(height: 8),
-          _readField(e?.typeName ?? '', 'Type'),
         ],
       ),
     );
@@ -309,46 +296,6 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
     );
   }
 
-  Widget _registerButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 54,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: const LinearGradient(
-            colors: [AppColors.primaryLight, AppColors.primary],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.35),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: ElevatedButton.icon(
-          onPressed: _registerFace,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          icon: const Icon(Icons.face_retouching_natural, color: Colors.white),
-          label: const Text(
-            'Register Face',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// Searchable employee picker (handles the ~900-employee list).
