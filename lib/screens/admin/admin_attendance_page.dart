@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../models/api_models.dart';
 import '../../services/mock_auth.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
@@ -99,26 +98,22 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
       _error = null;
     });
     try {
-      final results = await Future.wait([
-        ZedgiftApi.instance.employees(),
-        ZedgiftApi.instance.recentPunches(date: _dateParam),
-      ]);
-      final emps = results[0] as List<EmployeeListItem>;
-      final punches = results[1] as List<RecentPunch>;
-      final byId = {for (final p in punches) p.employeeId: p};
-      final rows = <_AttRow>[];
-      for (final e in emps) {
-        final p = byId[e.id];
-        rows.add(_AttRow(
-          id: e.id,
-          name: e.name.isEmpty ? 'Unnamed' : e.name,
-          customId: e.customId,
-          departmentName: e.departmentName,
-          dutyIn: p?.dutyIn ?? '',
-          dutyOut: p?.dutyOut ?? '',
-          status: p?.status ?? '',
-        ));
-      }
+      // Only the day's punches — no full roster. Each punch already carries the
+      // employee's name / department / in-out, so the page shows just the people
+      // who actually punched (no Absent rows, no heavy 500+ employee fetch).
+      final punches = await ZedgiftApi.instance.recentPunches(date: _dateParam);
+      final rows = [
+        for (final p in punches)
+          _AttRow(
+            id: p.employeeId,
+            name: p.employeeName.isEmpty ? 'Unnamed' : p.employeeName,
+            customId: p.customId,
+            departmentName: p.departmentName,
+            dutyIn: p.dutyIn,
+            dutyOut: p.dutyOut,
+            status: p.status,
+          ),
+      ];
 
       if (!mounted) return;
       setState(() {
@@ -220,8 +215,9 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
     }
 
     final list = _filtered;
-    final present = list.where((r) => r.present).length;
-    final absent = list.length - present;
+    final present = list.length;
+    final inCount = list.where((r) => r.isIn).length;
+    final outCount = present - inCount;
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -229,13 +225,13 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          _statRow(present, absent, list.length),
+          _statRow(present, inCount, outCount),
           const SizedBox(height: 18),
           if (list.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 60),
               child: Center(
-                child: Text('No employees found.',
+                child: Text('No punches yet for this day.',
                     style: TextStyle(
                         color: AppColors.textSecondary, fontSize: 14)),
               ),
@@ -405,16 +401,16 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
     );
   }
 
-  Widget _statRow(int present, int absent, int total) {
+  Widget _statRow(int present, int inCount, int outCount) {
     return Row(
       children: [
         Expanded(child: _statCard('PRESENT', '$present', AppColors.primary)),
         const SizedBox(width: 10),
         Expanded(
-            child: _statCard('ABSENT', '$absent', const Color(0xFFB23A48))),
+            child: _statCard('IN', '$inCount', const Color(0xFF2BB673))),
         const SizedBox(width: 10),
         Expanded(
-            child: _statCard('TOTAL', '$total', AppColors.textPrimary)),
+            child: _statCard('OUT', '$outCount', const Color(0xFFB8860B))),
       ],
     );
   }
