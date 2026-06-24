@@ -164,10 +164,57 @@ class ZedgiftApi {
     return null;
   }
 
+  /// Download a salary slip PDF (`GET /salary/slip/{id}/download`) as raw bytes.
+  Future<List<int>> salarySlipBytes(int salaryId) =>
+      _c.getBytes('salary/slip/$salaryId/download');
+
   /// Salary advances for an employee (`GET /advances?employee_id=`).
   Future<List<AdvanceRecord>> advances(int employeeId) async {
     final data = await _c.get('advances', query: {'employee_id': employeeId});
     return _list(data).map(AdvanceRecord.fromJson).toList();
+  }
+
+  /// Add an advance (`POST /advances`).
+  Future<void> createAdvance({
+    required int employeeId,
+    required int month,
+    required int year,
+    required String amount,
+    String? remark,
+  }) async {
+    await _c.postForm('advances', {
+      'employee_id': employeeId.toString(),
+      'month': month.toString(),
+      'year': year.toString(),
+      'amount': amount,
+      if (remark != null && remark.trim().isNotEmpty) 'remark': remark.trim(),
+    });
+  }
+
+  /// Edit an advance (`PUT /advances/{id}` — values in query).
+  Future<void> updateAdvance(
+    int id, {
+    required int employeeId,
+    required int month,
+    required int year,
+    required String amount,
+    String? remark,
+  }) async {
+    await _c.put('advances/$id', query: {
+      'employee_id': employeeId,
+      'month': month,
+      'year': year,
+      'amount': amount,
+      if (remark != null && remark.trim().isNotEmpty) 'remark': remark.trim(),
+    });
+  }
+
+  /// Remove an advance (`DELETE /advances/{id}`).
+  Future<void> deleteAdvance(int id) async => _c.delete('advances/$id');
+
+  /// Mark an advance as paid out (`POST /advances/payout`, field `id`).
+  Future<void> payoutAdvance(int id) async {
+    await _c.postForm('advances/payout', {'id': id.toString()});
   }
 
   /// Deductions (loan / penalty / uniform) for an employee
@@ -177,6 +224,93 @@ class ZedgiftApi {
         .get('deductions/by-employee', query: {'employee_id': employeeId});
     return _list(data).map(DeductionRecord.fromJson).toList();
   }
+
+  /// The deduction types (Loan Advance / Penalty / Uniform) — `GET
+  /// /deductions/types`. Returned as id+name pairs.
+  Future<List<NamedCount>> deductionTypes() async {
+    final data = await _c.get('deductions/types');
+    return _list(data).map(NamedCount.fromJson).toList();
+  }
+
+  /// Add a deduction (`POST /deductions`). [typeId] is the assettype id.
+  Future<void> createDeduction({
+    required int employeeId,
+    required int typeId,
+    required String amount,
+    String? description,
+  }) async {
+    await _c.postForm('deductions', {
+      'employee_id': employeeId.toString(),
+      'assettype_id': typeId.toString(),
+      'amount': amount,
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
+    });
+  }
+
+  /// Edit a deduction (`PUT /deductions/{id}` — values in query).
+  Future<void> updateDeduction(
+    int id, {
+    required int employeeId,
+    required int typeId,
+    required String amount,
+    String? description,
+  }) async {
+    await _c.put('deductions/$id', query: {
+      'employee_id': employeeId,
+      'assettype_id': typeId,
+      'amount': amount,
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
+    });
+  }
+
+  /// Remove a deduction (`DELETE /deductions/{id}`).
+  Future<void> deleteDeduction(int id) async => _c.delete('deductions/$id');
+
+  // ---- Feedback ----------------------------------------------------------
+
+  /// Feedback notes for one employee, filtered client-side from
+  /// `GET /employee-feedback` (list endpoint has no employee_id param).
+  Future<List<FeedbackRecord>> employeeFeedback(int employeeId) async {
+    final data = await _c.get('employee-feedback');
+    return _list(data)
+        .map(FeedbackRecord.fromJson)
+        .where((f) => f.employeeId == employeeId)
+        .toList();
+  }
+
+  /// Add a feedback note (`POST /employee-feedback`).
+  /// [type] is 1 = Positive, 2 = Negative.
+  Future<void> createFeedback({
+    required int employeeId,
+    required int type,
+    required String text,
+  }) async {
+    await _c.postForm('employee-feedback', {
+      'employee_id': employeeId.toString(),
+      'feedback_type': type.toString(),
+      'feedback': text.trim(),
+    });
+  }
+
+  /// Edit a feedback note (`PUT /employee-feedback/{id}` — values in query).
+  Future<void> updateFeedback(
+    int id, {
+    required int employeeId,
+    required int type,
+    required String text,
+  }) async {
+    await _c.put('employee-feedback/$id', query: {
+      'employee_id': employeeId,
+      'feedback_type': type,
+      'feedback': text.trim(),
+    });
+  }
+
+  /// Remove a feedback note (`DELETE /employee-feedback/{id}`).
+  Future<void> deleteFeedback(int id) async =>
+      _c.delete('employee-feedback/$id');
 
   /// Leaves for one employee, filtered client-side from `GET /leaves`
   /// (the list endpoint has no employee_id query param).

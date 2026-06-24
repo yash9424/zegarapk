@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../data/mock_data.dart';
 import '../../services/mock_auth.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_drawer.dart';
@@ -27,9 +26,7 @@ class AdminProfilePage extends StatelessWidget {
                 const SizedBox(height: 16),
                 Center(
                   child: Text(
-                    user.name == 'Administrator'
-                        ? MockData.adminName
-                        : user.name,
+                    user.name.isEmpty ? 'Administrator' : user.name,
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
@@ -37,42 +34,39 @@ class AdminProfilePage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                _employeeIdRow(),
+                if (user.userId.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  _employeeIdRow(),
+                ],
                 const SizedBox(height: 24),
                 _section(
-                  'PROFESSIONAL DETAILS',
+                  'CONTACT',
                   [
                     _InfoRow(
-                      icon: Icons.work_outline,
+                      icon: Icons.mail_outline,
                       iconColor: AppColors.primary,
-                      label: 'Role',
-                      value: MockData.adminRole,
+                      label: 'Work Email',
+                      value: user.email.isEmpty ? '—' : user.email,
                     ),
-                    _InfoRow(
-                      icon: Icons.apartment,
-                      iconColor: AppColors.textSecondary,
-                      label: 'Department',
-                      value: MockData.adminDepartment,
-                    ),
+                    if (user.phone.isNotEmpty)
+                      _InfoRow(
+                        icon: Icons.phone_outlined,
+                        iconColor: AppColors.textSecondary,
+                        label: 'Phone',
+                        value: user.phone,
+                      ),
                   ],
                 ),
                 const SizedBox(height: 18),
                 _section(
-                  'SECURITY & ACCESS',
+                  'ACCOUNT',
                   [
                     _InfoRow(
-                      icon: Icons.fingerprint,
+                      icon: Icons.verified_user_outlined,
                       iconColor: AppColors.primary,
-                      label: 'Biometric Status',
-                      value: MockData.adminBiometric,
-                      trailing: _activeBadge(),
-                    ),
-                    _InfoRow(
-                      icon: Icons.mail_outline,
-                      iconColor: AppColors.textSecondary,
-                      label: 'Work Email',
-                      value: user.email,
+                      label: 'Account Status',
+                      value: user.active ? 'Active' : 'Inactive',
+                      trailing: user.active ? _activeBadge() : null,
                     ),
                   ],
                 ),
@@ -142,7 +136,7 @@ class AdminProfilePage extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          'EMPLOYEE ID:',
+          'USER ID:',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -157,9 +151,9 @@ class AdminProfilePage extends StatelessWidget {
             color: AppColors.softRedTint,
             borderRadius: BorderRadius.circular(6),
           ),
-          child: const Text(
-            MockData.adminEmployeeId,
-            style: TextStyle(
+          child: Text(
+            user.userId,
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,

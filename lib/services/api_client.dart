@@ -149,6 +149,25 @@ class ApiClient {
     });
   }
 
+  /// GET raw bytes from an endpoint (e.g. a salary-slip PDF), carrying the
+  /// auth + Company-ID headers. Returns the response body bytes on 2xx,
+  /// otherwise throws an [ApiException].
+  Future<List<int>> getBytes(String path, {Map<String, dynamic>? query}) async {
+    http.Response res;
+    try {
+      res = await _http
+          .get(_uri(path, query), headers: _headers())
+          .timeout(ApiConfig.timeout);
+    } catch (_) {
+      throw ApiException('Network error. Please try again.');
+    }
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return res.bodyBytes;
+    }
+    throw ApiException('Could not download the file (${res.statusCode}).',
+        statusCode: res.statusCode);
+  }
+
   /// PUT with values passed as URL query params (the backend's update
   /// endpoints, e.g. `PUT /leaves/{id}`, read fields from the query string).
   Future<dynamic> put(String path, {Map<String, dynamic>? query}) async {

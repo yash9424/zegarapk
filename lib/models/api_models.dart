@@ -271,6 +271,7 @@ class AttendanceHistoryDay {
 /// One month's payroll from `GET /salary/by-employee`.
 class SalaryRecord {
   SalaryRecord({
+    required this.id,
     required this.month,
     required this.year,
     required this.fixSalary,
@@ -282,6 +283,7 @@ class SalaryRecord {
     required this.paid,
   });
 
+  final int id;
   final int month;
   final int year;
   final String fixSalary;
@@ -293,6 +295,7 @@ class SalaryRecord {
   final bool paid;
 
   factory SalaryRecord.fromJson(Map<String, dynamic> j) => SalaryRecord(
+        id: _int(j['id']),
         month: _int(j['month']),
         year: _int(j['year']),
         fixSalary: _money(j['fix_salary']),
@@ -305,26 +308,33 @@ class SalaryRecord {
       );
 }
 
-/// A salary advance from `GET /advances`.
+/// A salary advance from `GET /advances`. Carries the raw amount/month/year
+/// too so the edit form can pre-fill them.
 class AdvanceRecord {
   AdvanceRecord({
+    required this.id,
     required this.month,
     required this.year,
     required this.amount,
+    required this.amountRaw,
     required this.remark,
     required this.paid,
   });
 
+  final int id;
   final int month;
   final int year;
-  final String amount;
+  final String amount; // formatted ₹
+  final double amountRaw; // numeric, for edit form
   final String remark;
   final bool paid; // payout == 1
 
   factory AdvanceRecord.fromJson(Map<String, dynamic> j) => AdvanceRecord(
+        id: _int(j['id']),
         month: _int(j['month']),
         year: _int(j['year']),
         amount: _money(j['amount']),
+        amountRaw: _dbl(j['amount']),
         remark: _str(j['remark']).trim(),
         paid: _int(j['payout']) == 1,
       );
@@ -334,22 +344,32 @@ class AdvanceRecord {
 /// `GET /deductions/by-employee`.
 class DeductionRecord {
   DeductionRecord({
+    required this.id,
+    required this.typeId,
     required this.typeName,
     required this.amount,
+    required this.amountRaw,
     required this.description,
     required this.date,
   });
 
+  final int id;
+  final int typeId; // assettype_id, for edit form
   final String typeName;
   final String amount;
+  final double amountRaw;
   final String description;
   final String date;
 
   factory DeductionRecord.fromJson(Map<String, dynamic> j) {
-    final type = (j['type'] as Map?)?.cast<String, dynamic>();
+    final type = (j['type'] as Map?)?.cast<String, dynamic>() ??
+        (j['assettype'] as Map?)?.cast<String, dynamic>();
     return DeductionRecord(
+      id: _int(j['id']),
+      typeId: type != null ? _int(type['id']) : _int(j['assettype_id']),
       typeName: type == null ? 'Deduction' : _str(type['name']).trim(),
       amount: _money(j['amount']),
+      amountRaw: _dbl(j['amount']),
       description: _str(j['description']).trim(),
       date: _str(j['created_at']),
     );
@@ -359,27 +379,64 @@ class DeductionRecord {
 /// A leave from `GET /leaves`. status: 0 pending, 1 approved, 2 rejected.
 class LeaveRecord {
   LeaveRecord({
+    required this.id,
     required this.employeeId,
     required this.startDate,
     required this.endDate,
+    required this.startTime,
+    required this.endTime,
     required this.reason,
     required this.days,
     required this.status,
   });
 
+  final int id;
   final int employeeId;
   final String startDate;
   final String endDate;
+  final String startTime;
+  final String endTime;
   final String reason;
   final int days;
   final int status;
 
   factory LeaveRecord.fromJson(Map<String, dynamic> j) => LeaveRecord(
+        id: _int(j['id']),
         employeeId: _int(j['employee_id']),
         startDate: _str(j['start_date']),
         endDate: _str(j['end_date']),
+        startTime: _str(j['start_time']),
+        endTime: _str(j['end_time']),
         reason: _str(j['leave_reason']).trim(),
         days: _int(j['total_leave_days']),
         status: _int(j['status']),
+      );
+}
+
+/// An employee feedback note from `GET /employee-feedback`.
+/// feedback_type: 1 = Positive, 2 = Negative.
+class FeedbackRecord {
+  FeedbackRecord({
+    required this.id,
+    required this.employeeId,
+    required this.type,
+    required this.text,
+    required this.date,
+  });
+
+  final int id;
+  final int employeeId;
+  final int type; // 1 positive, 2 negative
+  final String text;
+  final String date;
+
+  bool get isPositive => type == 1;
+
+  factory FeedbackRecord.fromJson(Map<String, dynamic> j) => FeedbackRecord(
+        id: _int(j['id']),
+        employeeId: _int(j['employee_id']),
+        type: _int(j['feedback_type']),
+        text: _str(j['feedback']).trim(),
+        date: _str(j['created_at']),
       );
 }

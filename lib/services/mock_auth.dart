@@ -12,11 +12,21 @@ class AuthUser {
     required this.name,
     required this.email,
     required this.role,
+    this.phone = '',
+    this.userId = '',
+    this.active = true,
+    this.avatarUrl = '',
   });
 
   final String name;
   final String email;
   final UserRole role;
+
+  /// Fields straight from the login `user` object (all real, API-backed).
+  final String phone;
+  final String userId; // the user's id (shown as the account/employee id)
+  final bool active; // user.status == 1
+  final String avatarUrl; // user.avatar_url (full URL, may be empty)
 }
 
 class AuthResult {
@@ -45,6 +55,10 @@ class MockAuth {
 
   static const _kName = 'zedgift_user_name';
   static const _kEmail = 'zedgift_user_email';
+  static const _kPhone = 'zedgift_user_phone';
+  static const _kId = 'zedgift_user_id';
+  static const _kActive = 'zedgift_user_active';
+  static const _kAvatar = 'zedgift_user_avatar';
 
   /// True if a previous session is still active (token + user restored).
   bool get isLoggedIn => currentUser != null && ApiClient.instance.isAuthenticated;
@@ -57,7 +71,15 @@ class MockAuth {
     final prefs = await SharedPreferences.getInstance();
     final name = prefs.getString(_kName) ?? 'Administrator';
     final email = prefs.getString(_kEmail) ?? '';
-    currentUser = AuthUser(name: name, email: email, role: UserRole.admin);
+    currentUser = AuthUser(
+      name: name,
+      email: email,
+      role: UserRole.admin,
+      phone: prefs.getString(_kPhone) ?? '',
+      userId: prefs.getString(_kId) ?? '',
+      active: prefs.getBool(_kActive) ?? true,
+      avatarUrl: prefs.getString(_kAvatar) ?? '',
+    );
   }
 
   Future<AuthResult> login({
@@ -86,14 +108,30 @@ class MockAuth {
       final user = (map['user'] as Map?)?.cast<String, dynamic>();
       final name = _composeName(user) ?? id;
       final mail = (user?['email'] as String?) ?? id;
+      final phone = (user?['phone'] ?? '').toString().trim();
+      final uid = (user?['id'] ?? '').toString().trim();
+      final active = user == null ||
+          (user['status'] ?? 1).toString() == '1';
+      final avatarUrl = (user?['avatar_url'] ?? '').toString().trim();
 
-      final authUser =
-          AuthUser(name: name, email: mail, role: UserRole.admin);
+      final authUser = AuthUser(
+        name: name,
+        email: mail,
+        role: UserRole.admin,
+        phone: phone,
+        userId: uid,
+        active: active,
+        avatarUrl: avatarUrl,
+      );
       currentUser = authUser;
       // Persist user so the session survives an app restart.
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kName, name);
       await prefs.setString(_kEmail, mail);
+      await prefs.setString(_kPhone, phone);
+      await prefs.setString(_kId, uid);
+      await prefs.setBool(_kActive, active);
+      await prefs.setString(_kAvatar, avatarUrl);
       return AuthResult.success(authUser);
     } on ApiException catch (e) {
       return AuthResult.failure(e.message);
@@ -111,6 +149,9 @@ class MockAuth {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kName);
     await prefs.remove(_kEmail);
+    await prefs.remove(_kPhone);
+    await prefs.remove(_kId);
+    await prefs.remove(_kActive);
   }
 
   String? _composeName(Map<String, dynamic>? user) {
