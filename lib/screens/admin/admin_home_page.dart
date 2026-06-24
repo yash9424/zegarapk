@@ -24,7 +24,7 @@ class AdminHomePage extends StatelessWidget {
       bottom: false,
       child: Column(
         children: [
-          _AppBar(name: user.name),
+          _AppBar(name: user.name, avatarUrl: user.avatarUrl),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
@@ -137,9 +137,10 @@ class AdminHomePage extends StatelessWidget {
 }
 
 class _AppBar extends StatelessWidget {
-  const _AppBar({required this.name});
+  const _AppBar({required this.name, this.avatarUrl = ''});
 
   final String name;
+  final String avatarUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -155,9 +156,9 @@ class _AppBar extends StatelessWidget {
           const Spacer(),
           const ZegarLogo(fontSize: 22),
           const Spacer(),
-          // Real logged-in admin (initials avatar) — the API exposes no
-          // profile photo URL, so this mirrors the other screens' app bars.
-          UserAvatar(name: name, radius: 20, ring: true),
+          // Real logged-in admin — shows the login `avatar_url` photo,
+          // falling back to initials if it can't load.
+          UserAvatar(name: name, imageUrl: avatarUrl, radius: 20, ring: true),
         ],
       ),
     );

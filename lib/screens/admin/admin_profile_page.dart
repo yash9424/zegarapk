@@ -34,11 +34,27 @@ class AdminProfilePage extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (user.userId.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  _employeeIdRow(),
-                ],
+                const SizedBox(height: 8),
+                _employeeIdRow(),
                 const SizedBox(height: 24),
+                _section(
+                  'PERSONAL DETAILS',
+                  [
+                    _InfoRow(
+                      icon: Icons.person_outline,
+                      iconColor: AppColors.primary,
+                      label: 'Full Name',
+                      value: user.name.isEmpty ? '—' : user.name,
+                    ),
+                    _InfoRow(
+                      icon: Icons.badge_outlined,
+                      iconColor: AppColors.textSecondary,
+                      label: 'User ID',
+                      value: user.userId.isEmpty ? '—' : user.userId,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
                 _section(
                   'CONTACT',
                   [
@@ -48,13 +64,12 @@ class AdminProfilePage extends StatelessWidget {
                       label: 'Work Email',
                       value: user.email.isEmpty ? '—' : user.email,
                     ),
-                    if (user.phone.isNotEmpty)
-                      _InfoRow(
-                        icon: Icons.phone_outlined,
-                        iconColor: AppColors.textSecondary,
-                        label: 'Phone',
-                        value: user.phone,
-                      ),
+                    _InfoRow(
+                      icon: Icons.phone_outlined,
+                      iconColor: AppColors.textSecondary,
+                      label: 'Phone',
+                      value: user.phone.isEmpty ? '—' : user.phone,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 18),
@@ -93,7 +108,7 @@ class AdminProfilePage extends StatelessWidget {
           const Spacer(),
           const ZegarLogo(fontSize: 22),
           const Spacer(),
-          UserAvatar(name: user.name, radius: 18),
+          UserAvatar(name: user.name, imageUrl: user.avatarUrl, radius: 18),
         ],
       ),
     );
@@ -108,6 +123,7 @@ class AdminProfilePage extends StatelessWidget {
           children: [
             UserAvatar(
               name: user.name,
+              imageUrl: user.avatarUrl,
               radius: 56,
               ring: true,
             ),
@@ -152,7 +168,7 @@ class AdminProfilePage extends StatelessWidget {
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
-            user.userId,
+            user.userId.isEmpty ? '—' : user.userId,
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,

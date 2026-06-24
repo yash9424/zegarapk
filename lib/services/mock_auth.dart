@@ -152,6 +152,7 @@ class MockAuth {
     await prefs.remove(_kPhone);
     await prefs.remove(_kId);
     await prefs.remove(_kActive);
+    await prefs.remove(_kAvatar);
   }
 
   String? _composeName(Map<String, dynamic>? user) {
