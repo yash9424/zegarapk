@@ -1,7 +1,7 @@
-/// Plain data models mapped from the ZedGift API JSON.
-///
-/// Each has a `fromJson` that is defensive about types — the backend mixes
-/// ints, strings, nulls and empty strings, so helpers coerce safely.
+// Plain data models mapped from the ZedGift API JSON.
+//
+// Each has a `fromJson` that is defensive about types — the backend mixes
+// ints, strings, nulls and empty strings, so helpers coerce safely.
 
 String _str(dynamic v) => v == null ? '' : v.toString();
 
@@ -9,6 +9,31 @@ int _int(dynamic v) {
   if (v is int) return v;
   if (v is num) return v.toInt();
   return int.tryParse(v?.toString() ?? '') ?? 0;
+}
+
+double _dbl(dynamic v) {
+  if (v is num) return v.toDouble();
+  return double.tryParse(v?.toString() ?? '') ?? 0;
+}
+
+/// "70000.000000" → "₹70,000.00" (plain thousands grouping).
+String _money(dynamic v) {
+  final fixed = _dbl(v).toStringAsFixed(2);
+  final parts = fixed.split('.');
+  final intPart = parts[0].replaceFirst('-', '');
+  final neg = parts[0].startsWith('-');
+  final buf = StringBuffer();
+  for (var i = 0; i < intPart.length; i++) {
+    if (i > 0 && (intPart.length - i) % 3 == 0) buf.write(',');
+    buf.write(intPart[i]);
+  }
+  return '${neg ? '-' : ''}₹$buf.${parts[1]}';
+}
+
+/// "27.000000" → "27"; "1.5" → "1.5".
+String _trimNum(dynamic v) {
+  final d = _dbl(v);
+  return d == d.roundToDouble() ? d.toInt().toString() : d.toString();
 }
 
 /// A row from `GET /employees`.
@@ -240,5 +265,121 @@ class AttendanceHistoryDay {
         dutyOut: _str(j['duty_out']),
         workTime: _str(j['work_time']),
         remarks: _str(j['remarks']),
+      );
+}
+
+/// One month's payroll from `GET /salary/by-employee`.
+class SalaryRecord {
+  SalaryRecord({
+    required this.month,
+    required this.year,
+    required this.fixSalary,
+    required this.grossSalary,
+    required this.netSalary,
+    required this.totalDeduction,
+    required this.presentDays,
+    required this.totalDays,
+    required this.paid,
+  });
+
+  final int month;
+  final int year;
+  final String fixSalary;
+  final String grossSalary;
+  final String netSalary;
+  final String totalDeduction;
+  final String presentDays;
+  final String totalDays;
+  final bool paid;
+
+  factory SalaryRecord.fromJson(Map<String, dynamic> j) => SalaryRecord(
+        month: _int(j['month']),
+        year: _int(j['year']),
+        fixSalary: _money(j['fix_salary']),
+        grossSalary: _money(j['gross_salary']),
+        netSalary: _money(_dbl(j['net_salary_bank']) + _dbl(j['net_salary_cash'])),
+        totalDeduction: _money(j['total_deduction']),
+        presentDays: _trimNum(j['present_days']),
+        totalDays: _trimNum(j['total_days']),
+        paid: _int(j['paid']) == 1,
+      );
+}
+
+/// A salary advance from `GET /advances`.
+class AdvanceRecord {
+  AdvanceRecord({
+    required this.month,
+    required this.year,
+    required this.amount,
+    required this.remark,
+    required this.paid,
+  });
+
+  final int month;
+  final int year;
+  final String amount;
+  final String remark;
+  final bool paid; // payout == 1
+
+  factory AdvanceRecord.fromJson(Map<String, dynamic> j) => AdvanceRecord(
+        month: _int(j['month']),
+        year: _int(j['year']),
+        amount: _money(j['amount']),
+        remark: _str(j['remark']).trim(),
+        paid: _int(j['payout']) == 1,
+      );
+}
+
+/// A deduction entry (Loan Advance / Penalty / Uniform) from
+/// `GET /deductions/by-employee`.
+class DeductionRecord {
+  DeductionRecord({
+    required this.typeName,
+    required this.amount,
+    required this.description,
+    required this.date,
+  });
+
+  final String typeName;
+  final String amount;
+  final String description;
+  final String date;
+
+  factory DeductionRecord.fromJson(Map<String, dynamic> j) {
+    final type = (j['type'] as Map?)?.cast<String, dynamic>();
+    return DeductionRecord(
+      typeName: type == null ? 'Deduction' : _str(type['name']).trim(),
+      amount: _money(j['amount']),
+      description: _str(j['description']).trim(),
+      date: _str(j['created_at']),
+    );
+  }
+}
+
+/// A leave from `GET /leaves`. status: 0 pending, 1 approved, 2 rejected.
+class LeaveRecord {
+  LeaveRecord({
+    required this.employeeId,
+    required this.startDate,
+    required this.endDate,
+    required this.reason,
+    required this.days,
+    required this.status,
+  });
+
+  final int employeeId;
+  final String startDate;
+  final String endDate;
+  final String reason;
+  final int days;
+  final int status;
+
+  factory LeaveRecord.fromJson(Map<String, dynamic> j) => LeaveRecord(
+        employeeId: _int(j['employee_id']),
+        startDate: _str(j['start_date']),
+        endDate: _str(j['end_date']),
+        reason: _str(j['leave_reason']).trim(),
+        days: _int(j['total_leave_days']),
+        status: _int(j['status']),
       );
 }

@@ -143,6 +143,51 @@ class ZedgiftApi {
     return _list(data).map(AttendanceHistoryDay.fromJson).toList();
   }
 
+  // ---- Payroll / Advance / Deductions / Leaves --------------------------
+
+  /// One month's salary for an employee (`GET /salary/by-employee`).
+  /// Returns null when no salary has been generated for that month.
+  Future<SalaryRecord?> salaryForMonth(
+      int employeeId, int month, int year) async {
+    try {
+      final data = await _c.get('salary/by-employee', query: {
+        'employee_id': employeeId,
+        'month': month,
+        'year': year,
+      });
+      if (data is Map) {
+        return SalaryRecord.fromJson(data.cast<String, dynamic>());
+      }
+    } catch (_) {
+      // No record for this month — treated as "no payroll".
+    }
+    return null;
+  }
+
+  /// Salary advances for an employee (`GET /advances?employee_id=`).
+  Future<List<AdvanceRecord>> advances(int employeeId) async {
+    final data = await _c.get('advances', query: {'employee_id': employeeId});
+    return _list(data).map(AdvanceRecord.fromJson).toList();
+  }
+
+  /// Deductions (loan / penalty / uniform) for an employee
+  /// (`GET /deductions/by-employee?employee_id=`).
+  Future<List<DeductionRecord>> deductions(int employeeId) async {
+    final data = await _c
+        .get('deductions/by-employee', query: {'employee_id': employeeId});
+    return _list(data).map(DeductionRecord.fromJson).toList();
+  }
+
+  /// Leaves for one employee, filtered client-side from `GET /leaves`
+  /// (the list endpoint has no employee_id query param).
+  Future<List<LeaveRecord>> employeeLeaves(int employeeId) async {
+    final data = await _c.get('leaves');
+    return _list(data)
+        .map(LeaveRecord.fromJson)
+        .where((l) => l.employeeId == employeeId)
+        .toList();
+  }
+
   /// Raw status map for an employee (e.g. currently in/out). Returns the
   /// decoded `data` as-is since the shape is small and screen-specific.
   Future<Map<String, dynamic>> attendanceStatus(int employeeId) async {
