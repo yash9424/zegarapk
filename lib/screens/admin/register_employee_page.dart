@@ -7,13 +7,23 @@ import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/face_scan_circle.dart';
 import '../../widgets/inline_face_enroll.dart';
+import '../../widgets/search_field.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/zegar_logo.dart';
 
 /// Pick an existing employee (real list from the API). Selecting one fills the
 /// detail fields, and the face is registered via the camera enrol flow.
 class RegisterEmployeePage extends StatefulWidget {
-  const RegisterEmployeePage({super.key});
+  const RegisterEmployeePage({
+    super.key,
+    this.initialEmployeeId,
+    this.initialEmployeeName,
+  });
+
+  /// When opened from an employee's profile, this employee is pre-selected so
+  /// the inline camera is ready immediately (no need to search again).
+  final int? initialEmployeeId;
+  final String? initialEmployeeName;
 
   @override
   State<RegisterEmployeePage> createState() => _RegisterEmployeePageState();
@@ -41,6 +51,15 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
       if (!mounted) return;
       setState(() {
         _employees = list;
+        // Pre-select the employee we were opened for (from a profile page).
+        if (widget.initialEmployeeId != null) {
+          for (final e in list) {
+            if (e.id == widget.initialEmployeeId) {
+              _selected = e;
+              break;
+            }
+          }
+        }
         _loading = false;
       });
     } catch (e) {
@@ -317,7 +336,14 @@ class _EmployeePickerSheet extends StatefulWidget {
 }
 
 class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
+  final _searchCtl = TextEditingController();
   String _q = '';
+
+  @override
+  void dispose() {
+    _searchCtl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -336,76 +362,202 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.8,
+        height: MediaQuery.of(context).size.height * 0.85,
         child: Column(
           children: [
+            // Grab handle.
             Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 10),
+              width: 44,
+              height: 4.5,
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
               decoration: BoxDecoration(
                 color: AppColors.divider,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
+            // Title row + close.
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.fieldFill,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.fieldBorder),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    const Icon(Icons.search, color: AppColors.textMuted),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        autofocus: true,
-                        onChanged: (v) => setState(() => _q = v),
-                        decoration: const InputDecoration(
-                          isCollapsed: true,
-                          border: InputBorder.none,
-                          hintText: 'Search name, ID, department...',
-                          hintStyle: TextStyle(color: AppColors.textMuted),
-                        ),
+              padding: const EdgeInsets.fromLTRB(20, 6, 10, 6),
+              child: Row(
+                children: [
+                  const Text(
+                    'Select Employee',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.softRedTint,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${list.length}',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    splashRadius: 20,
+                    icon: const Icon(Icons.close_rounded,
+                        color: AppColors.textSecondary),
+                  ),
+                ],
               ),
             ),
-            const Divider(height: 1, color: AppColors.divider),
+            // Search.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 12),
+              child: SearchField(
+                controller: _searchCtl,
+                hint: 'Search name, ID, department…',
+                hasText: _q.isNotEmpty,
+                onChanged: (v) => setState(() => _q = v),
+                onClear: () {
+                  _searchCtl.clear();
+                  setState(() => _q = '');
+                },
+              ),
+            ),
             Expanded(
               child: list.isEmpty
-                  ? Center(
-                      child: Text('No employees found',
-                          style: TextStyle(color: AppColors.textSecondary)))
-                  : ListView.separated(
+                  ? _emptyState()
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                       itemCount: list.length,
-                      separatorBuilder: (_, __) =>
-                          const Divider(height: 1, color: AppColors.divider),
-                      itemBuilder: (_, i) {
-                        final e = list[i];
-                        return ListTile(
-                          leading: UserAvatar(name: e.name, radius: 20),
-                          title: Text(e.name.isEmpty ? 'Unnamed' : e.name,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary)),
-                          subtitle: Text(
-                              'ID ${e.customId} • ${e.departmentName}',
-                              style:
-                                  TextStyle(color: AppColors.textSecondary)),
-                          onTap: () => Navigator.pop(context, e),
-                        );
-                      },
+                      itemBuilder: (_, i) => _row(list[i]),
                     ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _row(EmployeeListItem e) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => Navigator.pop(context, e),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.fieldBorder),
+            ),
+            child: Row(
+              children: [
+                UserAvatar(name: e.name, radius: 23),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        e.name.isEmpty ? 'Unnamed' : e.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          _miniTag(Icons.badge_outlined, 'ID ${e.customId}'),
+                          if (e.departmentName.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: _miniTag(
+                                  Icons.apartment, e.departmentName,
+                                  muted: true),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: AppColors.softRedTint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.chevron_right,
+                      color: AppColors.primary, size: 20),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _miniTag(IconData icon, String text, {bool muted = false}) {
+    final color = muted ? AppColors.textSecondary : AppColors.primary;
+    final bg = muted ? const Color(0xFFEDEFF4) : AppColors.softRedTint;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search_off, size: 46, color: AppColors.textMuted),
+          const SizedBox(height: 10),
+          Text('No employees found',
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary)),
+          const SizedBox(height: 4),
+          Text('Try a different name, ID or department',
+              style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
+        ],
       ),
     );
   }

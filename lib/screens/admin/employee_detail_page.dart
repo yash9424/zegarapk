@@ -10,7 +10,7 @@ import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/time_format.dart';
 import '../../widgets/user_avatar.dart';
-import 'face_enroll_page.dart';
+import 'register_employee_page.dart';
 
 /// Full employee profile in a tabbed layout — Personal, Payroll, Leaves,
 /// Advance, Deductions and Attendance — each backed by the live ZedGift API.
@@ -131,9 +131,9 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
             icon: const Icon(Icons.face_retouching_natural),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => FaceEnrollPage(
-                  employeeId: widget.employeeId,
-                  employeeName: name,
+                builder: (_) => RegisterEmployeePage(
+                  initialEmployeeId: widget.employeeId,
+                  initialEmployeeName: name,
                 ),
               ),
             ),
