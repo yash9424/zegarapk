@@ -6,9 +6,9 @@ import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/face_scan_circle.dart';
+import '../../widgets/inline_face_enroll.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/zegar_logo.dart';
-import 'face_enroll_page.dart';
 
 /// Pick an existing employee (real list from the API). Selecting one fills the
 /// detail fields, and the face is registered via the camera enrol flow.
@@ -65,15 +65,33 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
     if (picked != null) setState(() => _selected = picked);
   }
 
-  void _registerFace() {
+  /// The face-capture area: a live inline camera circle once an employee is
+  /// selected, otherwise a placeholder circle prompting a selection.
+  Widget _captureArea() {
     final e = _selected;
     if (e == null) {
-      _snack('Please select an employee first.');
-      return;
+      return Column(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(120),
+            onTap: () => _snack('Please select an employee first.'),
+            child: const FaceScanCircle(
+              imageUrl: '',
+              placeholderIcon: Icons.camera_alt,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text('Select an employee above to start.',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+        ],
+      );
     }
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => FaceEnrollPage(employeeId: e.id, employeeName: e.name),
-    ));
+    return InlineFaceEnroll(
+      // Key on the id so picking a different employee resets the capture.
+      key: ValueKey(e.id),
+      employeeId: e.id,
+      employeeName: e.name,
+    );
   }
 
   void _snack(String msg) {
@@ -116,23 +134,14 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
                   const SizedBox(height: 6),
                   Center(
                     child: Text(
-                      'Select an employee, then tap the camera to register the face.',
+                      'Select an employee, then tap the circle to capture the face from 5 angles.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 14, color: AppColors.textSecondary),
                     ),
                   ),
                   const SizedBox(height: 22),
-                  Center(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(120),
-                      onTap: _registerFace,
-                      child: const FaceScanCircle(
-                        imageUrl: '',
-                        placeholderIcon: Icons.camera_alt,
-                      ),
-                    ),
-                  ),
+                  Center(child: _captureArea()),
                   const SizedBox(height: 16),
                   Center(child: _lightingBadge()),
                   const SizedBox(height: 24),
