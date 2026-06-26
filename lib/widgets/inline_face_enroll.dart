@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
@@ -6,30 +5,34 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 import '../services/face/face_embedder.dart';
-import '../services/face/face_store.dart';
-import '../services/zedgift_api.dart';
 import '../theme/app_theme.dart';
 
-/// In-page, guided face enrolment that lives INSIDE the circle — no external
+/// In-page, guided face CAPTURE that lives INSIDE the circle — no external
 /// screen. The live camera fills the circle; a green ring around it fills up
 /// (with a % in the middle) as each of the five angles is captured.
 ///
-/// Tap the circle to capture the current angle. When all angles are done the
-/// descriptors are stored locally (for offline kiosk matching) and the
-/// straight-on photo + embeddings are uploaded to `/attendance/face/register`.
+/// This widget only CAPTURES — it auto-scans the five angles and then hands the
+/// embeddings + straight-on photo back via [onCaptured]. It does NOT need an
+/// employee and does NOT upload anything; the parent attaches the captured face
+/// to the chosen employee when "Register" is tapped.
 class InlineFaceEnroll extends StatefulWidget {
   const InlineFaceEnroll({
     super.key,
-    required this.employeeId,
-    required this.employeeName,
     this.size = 240,
-    this.onEnrolled,
+    this.onCaptured,
+    this.onRetake,
   });
 
-  final int employeeId;
-  final String employeeName;
   final double size;
-  final VoidCallback? onEnrolled;
+
+  /// Fired once all five angles are captured. The parent holds the data and
+  /// uploads it after an employee is chosen and "Register" is tapped.
+  final void Function(List<List<double>> embeddings, String? straightImagePath)?
+      onCaptured;
+
+  /// Fired when the user taps "Retake" — the parent should drop any held
+  /// capture so the Register button disables again.
+  final VoidCallback? onRetake;
 
   @override
   State<InlineFaceEnroll> createState() => _InlineFaceEnrollState();
@@ -194,7 +197,7 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
       if (_step == 0) _straightImagePath = shot.path;
 
       if (_step >= _steps.length - 1) {
-        await _finish();
+        _finish();
       } else {
         if (mounted) {
           setState(() {
@@ -211,35 +214,26 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
     }
   }
 
-  Future<void> _finish() async {
+  void _finish() {
     _looping = false;
-    await FaceStore.instance
-        .enroll(widget.employeeId, widget.employeeName, _embeddings);
-    try {
-      if (_straightImagePath != null) {
-        await ZedgiftApi.instance.registerFace(
-          widget.employeeId,
-          _straightImagePath!,
-          embeddings: jsonEncode(_embeddings),
-        );
-      }
-    } catch (_) {/* local enrolment still succeeded */}
-
     if (!mounted) return;
     setState(() => _done = true);
-    _snack('✓ Face registered for ${widget.employeeName}');
-    widget.onEnrolled?.call();
+    widget.onCaptured
+        ?.call(List<List<double>>.of(_embeddings), _straightImagePath);
   }
 
-  void _snack(String msg, {bool error = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: error ? AppColors.primaryDark : _green,
-      ));
+  /// Discard the capture and scan again from the first angle.
+  void _reset() {
+    _embeddings.clear();
+    _straightImagePath = null;
+    setState(() {
+      _step = 0;
+      _seen = 0;
+      _done = false;
+      _hint = '';
+    });
+    widget.onRetake?.call();
+    _startLoop();
   }
 
   @override
@@ -353,10 +347,25 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
           style: TextStyle(fontSize: 13, color: AppColors.textSecondary));
     }
     if (_done) {
-      return Text('Face registered successfully.',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w700, color: _green));
+      return Column(
+        children: [
+          const Text('Face captured ✓',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w700, color: _green)),
+          const SizedBox(height: 2),
+          Text('Now choose the employee below, then tap Register.',
+              textAlign: TextAlign.center,
+              style:
+                  TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+          TextButton.icon(
+            onPressed: _reset,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Retake'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+          ),
+        ],
+      );
     }
     final step = _steps[_step];
     return Column(

@@ -1,11 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../models/api_models.dart';
+import '../../services/face/face_store.dart';
 import '../../services/mock_auth.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
-import '../../widgets/face_scan_circle.dart';
 import '../../widgets/inline_face_enroll.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/user_avatar.dart';
@@ -34,6 +36,12 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
   String? _error;
   List<EmployeeListItem> _employees = const [];
   EmployeeListItem? _selected;
+
+  // The captured face (held until an employee is chosen and Register is tapped).
+  List<List<double>>? _embeddings;
+  String? _faceImagePath;
+  bool _submitting = false;
+  int _captureSession = 0; // bump to reset the camera widget after a register
 
   @override
   void initState() {
@@ -84,33 +92,54 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
     if (picked != null) setState(() => _selected = picked);
   }
 
-  /// The face-capture area: a live inline camera circle once an employee is
-  /// selected, otherwise a placeholder circle prompting a selection.
+  /// The face-capture area: a live inline camera that auto-scans the five
+  /// angles. Capture happens first and independently of the employee — the
+  /// result is held until "Register" is tapped.
   Widget _captureArea() {
-    final e = _selected;
-    if (e == null) {
-      return Column(
-        children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(120),
-            onTap: () => _snack('Please select an employee first.'),
-            child: const FaceScanCircle(
-              imageUrl: '',
-              placeholderIcon: Icons.camera_alt,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text('Select an employee above to start.',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-        ],
-      );
-    }
     return InlineFaceEnroll(
-      // Key on the id so picking a different employee resets the capture.
-      key: ValueKey(e.id),
-      employeeId: e.id,
-      employeeName: e.name,
+      // Bump the session key to reset the camera after a successful register.
+      key: ValueKey(_captureSession),
+      onCaptured: (embeddings, imagePath) => setState(() {
+        _embeddings = embeddings;
+        _faceImagePath = imagePath;
+      }),
+      onRetake: () => setState(() {
+        _embeddings = null;
+        _faceImagePath = null;
+      }),
     );
+  }
+
+  /// Attach the captured face to the selected employee: store it locally for
+  /// offline kiosk matching and upload it to the API.
+  Future<void> _register() async {
+    final e = _selected;
+    final emb = _embeddings;
+    final path = _faceImagePath;
+    if (e == null || emb == null || emb.isEmpty || _submitting) return;
+
+    setState(() => _submitting = true);
+    try {
+      await FaceStore.instance.enroll(e.id, e.name, emb);
+      if (path != null) {
+        await ZedgiftApi.instance
+            .registerFace(e.id, path, embeddings: jsonEncode(emb));
+      }
+      if (!mounted) return;
+      _snack('✓ Registered successfully for ${e.name}');
+      // Reset for the next enrolment.
+      setState(() {
+        _embeddings = null;
+        _faceImagePath = null;
+        _selected = null;
+        _submitting = false;
+        _captureSession++; // recreate the camera widget fresh
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      _snack('Could not register. Please try again.');
+    }
   }
 
   void _snack(String msg) {
@@ -153,7 +182,7 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
                   const SizedBox(height: 6),
                   Center(
                     child: Text(
-                      'Select an employee, then tap the circle to capture the face from 5 angles.',
+                      'Capture the face from 5 angles, then choose the employee and tap Register.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 14, color: AppColors.textSecondary),
@@ -165,6 +194,8 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
                   Center(child: _lightingBadge()),
                   const SizedBox(height: 24),
                   _formCard(),
+                  const SizedBox(height: 20),
+                  _registerButton(),
                 ],
               ),
             ),
@@ -250,6 +281,59 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
           _readField(e?.name ?? '', 'Full name'),
         ],
       ),
+    );
+  }
+
+  /// Enabled only when a face is captured AND an employee is chosen.
+  Widget _registerButton() {
+    final ready = _embeddings != null &&
+        _embeddings!.isNotEmpty &&
+        _selected != null &&
+        !_submitting;
+    final hint = _embeddings == null || _embeddings!.isEmpty
+        ? 'Capture the face first'
+        : _selected == null
+            ? 'Choose an employee to register'
+            : null;
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: 54,
+          child: ElevatedButton(
+            onPressed: ready ? _register : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.4),
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white70,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: _submitting
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Text(
+                    'Register',
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  ),
+          ),
+        ),
+        if (hint != null) ...[
+          const SizedBox(height: 8),
+          Text(hint,
+              style: TextStyle(fontSize: 12.5, color: AppColors.textMuted)),
+        ],
+      ],
     );
   }
 
