@@ -40,10 +40,6 @@ class _SplashScreenState extends State<SplashScreen>
   late final Animation<double> _textFade =
       CurvedAnimation(parent: _text, curve: Curves.easeIn);
 
-  late final Animation<Offset> _textSlide = Tween(
-          begin: const Offset(0, 0.5), end: Offset.zero)
-      .animate(CurvedAnimation(parent: _text, curve: Curves.easeOut));
-
   @override
   void initState() {
     super.initState();
@@ -127,7 +123,7 @@ class _SplashScreenState extends State<SplashScreen>
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo badge with scale + fade.
+              // Brand logo card with scale + fade.
               FadeTransition(
                 opacity: _logoFade,
                 child: ScaleTransition(
@@ -136,16 +132,6 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
               const SizedBox(height: 28),
-
-              // "ZEGAR" wordmark slides up + fades in.
-              SlideTransition(
-                position: _textSlide,
-                child: FadeTransition(
-                  opacity: _textFade,
-                  child: _wordmark(),
-                ),
-              ),
-              const SizedBox(height: 12),
 
               FadeTransition(
                 opacity: _textFade,
@@ -200,13 +186,10 @@ class _SplashScreenState extends State<SplashScreen>
 
   Widget _logoBadge() {
     return Container(
-      width: 120,
-      height: 120,
+      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const RadialGradient(
-          colors: [Colors.white, Color(0xFFF0F0F0)],
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.35),
@@ -220,90 +203,12 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         ],
       ),
-      child: Center(
-        child: ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.primaryLight, AppColors.primaryDark],
-          ).createShader(bounds),
-          child: const Text(
-            'Z',
-            style: TextStyle(
-              fontSize: 72,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              height: 1,
-              shadows: [
-                Shadow(
-                  color: Color(0x55000000),
-                  offset: Offset(3, 4),
-                  blurRadius: 8,
-                ),
-              ],
-            ),
-          ),
-        ),
+      child: Image.asset(
+        'assets/images/cropped-zlogo.png',
+        width: 210,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
       ),
-    );
-  }
-
-  Widget _wordmark() {
-    const style = TextStyle(
-      fontSize: 42,
-      fontWeight: FontWeight.w900,
-      color: Colors.white,
-      letterSpacing: 6,
-      height: 1,
-    );
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text('ZE', style: style),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          alignment: Alignment.center,
-          child: ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [AppColors.primaryLight, AppColors.primaryDark],
-            ).createShader(bounds),
-            child: const Text(
-              'G',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                height: 1,
-              ),
-            ),
-          ),
-        ),
-        const Text('AR', style: style),
-        Transform.translate(
-          offset: const Offset(2, -16),
-          child: const Text(
-            '®',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.white70,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

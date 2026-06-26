@@ -66,7 +66,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/icon/app_icon.png"
+  image_path: "assets/images/zegar-fav-icon.png"
   min_sdk_android: 21
 
 flutter:
@@ -75,6 +75,7 @@ flutter:
 
   assets:
     - assets/icon/
+    - assets/images/
     - assets/models/
 
   # To add assets to your application, add an assets section, like this:
