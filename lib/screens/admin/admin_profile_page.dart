@@ -77,8 +77,18 @@ class AdminProfilePage extends StatelessWidget {
                   'ACCOUNT',
                   [
                     _InfoRow(
-                      icon: Icons.verified_user_outlined,
+                      icon: Icons.business_outlined,
                       iconColor: AppColors.primary,
+                      label: 'Company',
+                      value: user.companyName.isNotEmpty
+                          ? user.companyName
+                          : (user.companyId.isEmpty
+                              ? '—'
+                              : 'ID ${user.companyId}'),
+                    ),
+                    _InfoRow(
+                      icon: Icons.verified_user_outlined,
+                      iconColor: AppColors.textSecondary,
                       label: 'Account Status',
                       value: user.active ? 'Active' : 'Inactive',
                       trailing: user.active ? _activeBadge() : null,

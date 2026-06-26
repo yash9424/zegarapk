@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../models/api_models.dart';
-import '../../services/api_client.dart';
 import '../../services/mock_auth.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
@@ -29,8 +28,6 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
   String? _error;
   List<EmployeeListItem> _all = const [];
   List<NamedCount> _departments = const [];
-  List<Company> _companies = const [];
-  late String _companyId = ApiClient.instance.companyId;
 
   @override
   void initState() {
@@ -53,13 +50,11 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
       final results = await Future.wait([
         ZedgiftApi.instance.employees(),
         ZedgiftApi.instance.departments(),
-        ZedgiftApi.instance.companies(),
       ]);
       if (!mounted) return;
       setState(() {
         _all = results[0] as List<EmployeeListItem>;
         _departments = results[1] as List<NamedCount>;
-        _companies = results[2] as List<Company>;
         _loading = false;
       });
     } catch (e) {
@@ -86,16 +81,6 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
           e.customId.toString().contains(q);
       return matchesCat && matchesStatus && matchesQuery;
     }).toList();
-  }
-
-  /// Switch the active company → reload its employees + departments.
-  Future<void> _onCompanyChanged(String id) async {
-    ApiClient.instance.companyId = id;
-    setState(() {
-      _companyId = id;
-      _depts.clear(); // department list will change
-    });
-    await _load();
   }
 
   @override
@@ -134,7 +119,7 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
           children: [
             _appBar(),
             _searchBar(),
-            if (!_loading && _error == null && _companies.isNotEmpty) ...[
+            if (!_loading && _error == null) ...[
               const SizedBox(height: 10),
               _filters(),
             ],
@@ -205,11 +190,6 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
     );
   }
 
-  String get _companyName => _companies
-      .firstWhere((c) => c.id.toString() == _companyId,
-          orElse: () => Company(id: 0, name: 'Company'))
-      .name;
-
   Widget _filters() {
     final noFilter = _depts.isEmpty && _statuses.isEmpty;
     return SizedBox(
@@ -226,12 +206,6 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
               _depts.clear();
               _statuses.clear();
             }),
-          ),
-          _chip(
-            label: _companyName,
-            icon: Icons.apartment,
-            active: true,
-            onTap: _pickCompany,
           ),
           _chip(
             label: _deptLabel(),
@@ -308,73 +282,6 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
         ),
       ),
     );
-  }
-
-  /// Bottom-sheet option picker. Returns the chosen index, or null if dismissed.
-  Future<int?> _pickSheet(String title, List<String> labels, int current) {
-    return showModalBottomSheet<int>(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(title,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w700)),
-              ),
-            ),
-            const Divider(height: 1, color: AppColors.divider),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: labels.length,
-                itemBuilder: (_, i) {
-                  final sel = i == current;
-                  return ListTile(
-                    title: Text(labels[i],
-                        style: TextStyle(
-                          fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                          color: sel
-                              ? AppColors.primary
-                              : AppColors.textPrimary,
-                        )),
-                    trailing: sel
-                        ? const Icon(Icons.check, color: AppColors.primary)
-                        : null,
-                    onTap: () => Navigator.pop(ctx, i),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickCompany() async {
-    final values = _companies.map((c) => c.id.toString()).toList();
-    final labels = _companies.map((c) => c.name).toList();
-    final r = await _pickSheet('Select Company', labels, values.indexOf(_companyId));
-    if (r != null && values[r] != _companyId) _onCompanyChanged(values[r]);
   }
 
   Future<void> _pickDepartment() async {

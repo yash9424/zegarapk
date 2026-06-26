@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
+import 'zedgift_api.dart';
 
 /// Roles a logged-in user can have. The ZedGift API is an admin-level API
 /// (it returns org-wide employees and attendance), so a successful login
@@ -16,6 +17,8 @@ class AuthUser {
     this.userId = '',
     this.active = true,
     this.avatarUrl = '',
+    this.companyId = '',
+    this.companyName = '',
   });
 
   final String name;
@@ -27,6 +30,8 @@ class AuthUser {
   final String userId; // the user's id (shown as the account/employee id)
   final bool active; // user.status == 1
   final String avatarUrl; // user.avatar_url (full URL, may be empty)
+  final String companyId; // user.company_id — which company this admin owns
+  final String companyName; // resolved from /companies (login gives only the id)
 }
 
 class AuthResult {
@@ -59,6 +64,8 @@ class MockAuth {
   static const _kId = 'zedgift_user_id';
   static const _kActive = 'zedgift_user_active';
   static const _kAvatar = 'zedgift_user_avatar';
+  static const _kCompany = 'zedgift_user_company_id';
+  static const _kCompanyName = 'zedgift_user_company_name';
 
   /// True if a previous session is still active (token + user restored).
   bool get isLoggedIn => currentUser != null && ApiClient.instance.isAuthenticated;
@@ -71,6 +78,20 @@ class MockAuth {
     final prefs = await SharedPreferences.getInstance();
     final name = prefs.getString(_kName) ?? 'Administrator';
     final email = prefs.getString(_kEmail) ?? '';
+    final companyId = prefs.getString(_kCompany) ?? '';
+    // Restore the admin's company so every call targets their data, not the
+    // hardcoded default, after an app restart.
+    if (companyId.isNotEmpty) ApiClient.instance.companyId = companyId;
+    // Sessions created before company-name support (or where the earlier
+    // lookup failed) have no saved name — resolve it now so the profile shows
+    // "Zegar" instead of "ID 1", without forcing a re-login.
+    var companyName = prefs.getString(_kCompanyName) ?? '';
+    if (companyName.isEmpty && companyId.isNotEmpty) {
+      companyName = await _resolveCompanyName(companyId);
+      if (companyName.isNotEmpty) {
+        await prefs.setString(_kCompanyName, companyName);
+      }
+    }
     currentUser = AuthUser(
       name: name,
       email: email,
@@ -79,6 +100,8 @@ class MockAuth {
       userId: prefs.getString(_kId) ?? '',
       active: prefs.getBool(_kActive) ?? true,
       avatarUrl: prefs.getString(_kAvatar) ?? '',
+      companyId: companyId,
+      companyName: companyName,
     );
   }
 
@@ -113,6 +136,15 @@ class MockAuth {
       final active = user == null ||
           (user['status'] ?? 1).toString() == '1';
       final avatarUrl = (user?['avatar_url'] ?? '').toString().trim();
+      final companyId = (user?['company_id'] ?? '').toString().trim();
+
+      // Point every later request at this admin's company. When the login
+      // response omits it, fall back to the configured default.
+      if (companyId.isNotEmpty) ApiClient.instance.companyId = companyId;
+
+      // Login only returns the company id, so resolve its display name from
+      // /companies. Best-effort: a failure here must not block sign-in.
+      final companyName = await _resolveCompanyName(companyId);
 
       final authUser = AuthUser(
         name: name,
@@ -122,6 +154,8 @@ class MockAuth {
         userId: uid,
         active: active,
         avatarUrl: avatarUrl,
+        companyId: companyId,
+        companyName: companyName,
       );
       currentUser = authUser;
       // Persist user so the session survives an app restart.
@@ -132,6 +166,8 @@ class MockAuth {
       await prefs.setString(_kId, uid);
       await prefs.setBool(_kActive, active);
       await prefs.setString(_kAvatar, avatarUrl);
+      await prefs.setString(_kCompany, companyId);
+      await prefs.setString(_kCompanyName, companyName);
       return AuthResult.success(authUser);
     } on ApiException catch (e) {
       return AuthResult.failure(e.message);
@@ -153,6 +189,24 @@ class MockAuth {
     await prefs.remove(_kId);
     await prefs.remove(_kActive);
     await prefs.remove(_kAvatar);
+    await prefs.remove(_kCompany);
+    await prefs.remove(_kCompanyName);
+  }
+
+  /// Look up the company's display name from /companies for the given id.
+  /// Returns '' if the id is empty or the call fails — the caller falls back
+  /// to showing the raw id, so sign-in never breaks on this.
+  Future<String> _resolveCompanyName(String companyId) async {
+    if (companyId.isEmpty) return '';
+    try {
+      final companies = await ZedgiftApi.instance.companies();
+      for (final c in companies) {
+        if (c.id.toString() == companyId) return c.name;
+      }
+    } catch (_) {
+      // Network/parse issue — leave the name blank, the id still shows.
+    }
+    return '';
   }
 
   String? _composeName(Map<String, dynamic>? user) {
