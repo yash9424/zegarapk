@@ -339,7 +339,10 @@ class _AttendanceResultPage extends StatelessWidget {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  // Done returns to the login screen (the first route),
+                  // closing both the result page and the scan page.
+                  onPressed: () => Navigator.of(context)
+                      .popUntil((route) => route.isFirst),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
