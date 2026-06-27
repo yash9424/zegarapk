@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
@@ -74,6 +75,9 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
 
   final List<List<double>> _embeddings = [];
   String? _straightImagePath;
+  // Lowest |yaw|+|pitch| seen so far — picks the most front-facing frame for
+  // the photo we freeze on (a clean straight face, never a tilt).
+  double _bestStraightScore = 999;
 
   double get _progress => _embeddings.length / _steps.length;
 
@@ -179,6 +183,15 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
       _seen++;
       final y = face.headEulerAngleY ?? 0;
       final x = face.headEulerAngleX ?? 0;
+
+      // Keep the most front-facing frame seen anywhere in the session as the
+      // display/upload photo — guarantees a straight face, not a head-down one.
+      final straightScore = y.abs() + x.abs();
+      if (straightScore < _bestStraightScore) {
+        _bestStraightScore = straightScore;
+        _straightImagePath = shot.path;
+      }
+
       if (!_poseOk(y, x)) {
         if (mounted) setState(() => _hint = 'Hold the pose…');
         return;
@@ -194,7 +207,6 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
       }
 
       _embeddings.add(emb);
-      if (_step == 0) _straightImagePath = shot.path;
 
       if (_step >= _steps.length - 1) {
         _finish();
@@ -226,6 +238,7 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
   void _reset() {
     _embeddings.clear();
     _straightImagePath = null;
+    _bestStraightScore = 999;
     setState(() {
       _step = 0;
       _seen = 0;
@@ -286,6 +299,22 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
         child: Text(_fatal!,
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white70, fontSize: 13)),
+      );
+    }
+    // After capture, freeze the circle on the captured photo (not the live
+    // camera). "Retake" clears _done and brings the camera back.
+    if (_done && _straightImagePath != null) {
+      return Transform(
+        alignment: Alignment.center,
+        // Mirror horizontally so the frozen photo matches the selfie-style
+        // live preview the user just saw (front camera).
+        transform: Matrix4.identity()..scale(-1.0, 1.0, 1.0),
+        child: Image.file(
+          File(_straightImagePath!),
+          fit: BoxFit.cover,
+          width: widget.size - 18,
+          height: widget.size - 18,
+        ),
       );
     }
     if (_initializing || cam == null || !cam.value.isInitialized) {
