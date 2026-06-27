@@ -208,7 +208,12 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
           const Spacer(),
           const ZegarLogo(fontSize: 22),
           const Spacer(),
-          UserAvatar(name: name, radius: 20, ring: true),
+          UserAvatar(
+            name: name,
+            imageUrl: MockAuth.instance.currentUser?.avatarUrl,
+            radius: 20,
+            ring: true,
+          ),
         ],
       ),
     );

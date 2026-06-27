@@ -264,6 +264,7 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
           const Spacer(),
           UserAvatar(
             name: MockAuth.instance.currentUser?.name ?? 'Admin',
+            imageUrl: MockAuth.instance.currentUser?.avatarUrl,
             radius: 20,
             ring: true,
           ),
