@@ -215,10 +215,14 @@ class _FaceAttendancePageState extends State<FaceAttendancePage> {
         Expanded(child: CameraPreview(cam)),
         Container(
           color: Colors.black,
-          padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
-          child: Column(
-            children: [
-              const Text('Position your face in the frame and tap Scan',
+          child: SafeArea(
+            // Keep the Scan button clear of the phone's bottom navigation bar.
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 18, 24, 20),
+              child: Column(
+                children: [
+                  const Text('Position your face in the frame and tap Scan',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70, fontSize: 15)),
               const SizedBox(height: 16),
@@ -246,7 +250,9 @@ class _FaceAttendancePageState extends State<FaceAttendancePage> {
                   label: Text(_busy ? 'Scanning...' : 'Scan Face'),
                 ),
               ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
       ],
