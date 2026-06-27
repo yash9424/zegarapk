@@ -179,19 +179,8 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Center(
-                    child: Text(
-                      'Capture the face from 5 angles, then choose the employee and tap Register.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: 14, color: AppColors.textSecondary),
-                    ),
-                  ),
                   const SizedBox(height: 22),
                   Center(child: _captureArea()),
-                  const SizedBox(height: 16),
-                  Center(child: _lightingBadge()),
                   const SizedBox(height: 24),
                   _formCard(),
                   const SizedBox(height: 20),
@@ -225,31 +214,6 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
     );
   }
 
-  Widget _lightingBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.softRedTint,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.check_circle, color: AppColors.primary, size: 16),
-          SizedBox(width: 6),
-          Text(
-            'Optimal Lighting',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _formCard() {
     final e = _selected;
     return Container(
@@ -272,13 +236,27 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
           const SizedBox(height: 8),
           _employeePicker(),
           const SizedBox(height: 18),
-          _label('Employee ID'),
-          const SizedBox(height: 8),
-          _readField(e == null ? '' : e.customId.toString(), 'EMP ID'),
-          const SizedBox(height: 18),
-          _label('Name'),
-          const SizedBox(height: 8),
-          _readField(e?.name ?? '', 'Full name'),
+          // Employee ID + Department side by side — both read-only.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _readFieldGroup(
+                  'Employee ID',
+                  e == null ? '' : e.customId.toString(),
+                  'EMP ID',
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _readFieldGroup(
+                  'Department Name',
+                  e?.departmentName ?? '',
+                  'Department',
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -354,6 +332,18 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
         border: Border.all(color: AppColors.fieldBorder),
       );
 
+  /// A label above a read-only field (used for the ID / Department pair).
+  Widget _readFieldGroup(String label, String value, String hint) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label(label),
+        const SizedBox(height: 8),
+        _readField(value, hint),
+      ],
+    );
+  }
+
   /// Read-only filled field (auto-filled from the selected employee).
   Widget _readField(String value, String hint) {
     final empty = value.trim().isEmpty;
@@ -392,7 +382,7 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
                         ? _error!
                         : e == null
                             ? 'Choose an employee...'
-                            : '${e.name}  (ID ${e.customId})',
+                            : e.name,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 14,
