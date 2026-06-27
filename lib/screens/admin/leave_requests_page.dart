@@ -136,7 +136,7 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
         separatorBuilder: (context, index) => const SizedBox(height: 14),
         itemBuilder: (context, i) => _LeaveCard(
           request: list[i],
-          initiallyExpanded: i < 2,
+          initiallyExpanded: false, // all cards start collapsed
           onChanged: _load,
         ),
       ),
@@ -173,27 +173,51 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
 
     final from = s(['from_date', 'start_date', 'leave_from', 'date_from']);
     final to = s(['to_date', 'end_date', 'leave_to', 'date_to']);
-    // Show just the date part (drop any trailing time) in the range label.
-    String dateOnly(String v) => v.contains(' ') ? v.split(' ').first : v;
-    final range = [dateOnly(from), dateOnly(to)]
-        .where((e) => e.isNotEmpty)
-        .join(' - ');
+
+    // Role / department / employee-id live inside the nested `employee` object.
+    String empSub(String group, String key) {
+      final g = emp?[group];
+      if (g is Map) return (g[key]?.toString() ?? '').trim();
+      return '';
+    }
+
+    final role = empSub('designation', 'name').isNotEmpty
+        ? empSub('designation', 'name')
+        : s(['designation', 'role']);
+    final department = empSub('department', 'name').isNotEmpty
+        ? empSub('department', 'name')
+        : s(['department', 'department_name']);
+    final customId = (emp?['custom_employee_id']?.toString().trim() ?? '')
+            .isNotEmpty
+        ? emp!['custom_employee_id'].toString().trim()
+        : s(['custom_employee_id', 'employee_id', 'id']);
+
+    // Leave type comes back as a number — show a generic label for it.
+    final rawType = s(['leave_type', 'type']);
+    final leaveType =
+        (rawType.isEmpty || int.tryParse(rawType) != null) ? 'Leave' : rawType;
+
+    // Duration like "4 Days".
+    final days = s(['total_leave_days', 'days', 'duration', 'total_days']);
+    final duration = days.isEmpty
+        ? ''
+        : (int.tryParse(days) != null
+            ? '$days ${days == '1' ? 'Day' : 'Days'}'
+            : days);
 
     final empNumId = int.tryParse(s(['employee_id'])) ??
         (emp == null ? 0 : int.tryParse(emp['id']?.toString() ?? '') ?? 0);
 
     return LeaveRequest(
       name: name.isEmpty ? 'Employee' : name,
-      role: s(['designation', 'role']),
-      department: s(['department', 'department_name']),
-      employeeId: s(['custom_employee_id', 'employee_id', 'id']),
-      leaveType: s(['leave_type', 'type']).isEmpty
-          ? 'Leave'
-          : s(['leave_type', 'type']),
+      role: role,
+      department: department,
+      employeeId: customId,
+      leaveType: leaveType,
       ref: '#${s(['id', 'ref'])}',
       status: status,
-      dateRange: range.isEmpty ? s(['date', 'dates']) : range,
-      duration: s(['days', 'duration', 'total_leave_days', 'total_days']),
+      dateRange: _fmtRange(from, to),
+      duration: duration,
       reason: s(['leave_reason', 'reason', 'note', 'remark']),
       footerNote: s(['created_at', 'applied_at']),
       leaveId: int.tryParse(s(['id'])) ?? 0,
@@ -201,6 +225,28 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
       rawStart: from,
       rawEnd: to,
     );
+  }
+
+  /// Format a leave's start/end as "27 Jun - 30 Jun, 2026" (day month, year).
+  String _fmtRange(String from, String to) {
+    const m = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final a = parseApiDateTime(from);
+    final b = parseApiDateTime(to);
+    String d(DateTime t) => '${t.day} ${m[t.month - 1]}';
+    if (a != null && b != null) {
+      return a.year == b.year
+          ? '${d(a)} - ${d(b)}, ${a.year}'
+          : '${d(a)}, ${a.year} - ${d(b)}, ${b.year}';
+    }
+    final only = a ?? b;
+    if (only != null) return '${d(only)}, ${only.year}';
+    String dateOnly(String v) => v.contains(' ') ? v.split(' ').first : v;
+    return [dateOnly(from), dateOnly(to)]
+        .where((e) => e.isNotEmpty)
+        .join(' - ');
   }
 
   Widget _appBar() {
@@ -287,20 +333,6 @@ _StatusStyle _statusStyle(LeaveStatus s) {
       return const _StatusStyle(
           'Rejected', AppColors.primary, AppColors.softRedTint);
   }
-}
-
-({IconData icon, Color color}) _leaveTypeStyle(String type) {
-  final t = type.toLowerCase();
-  if (t.contains('sick')) {
-    return (icon: Icons.medical_services_outlined, color: AppColors.primary);
-  }
-  if (t.contains('annual')) {
-    return (icon: Icons.beach_access_outlined, color: const Color(0xFF2BB673));
-  }
-  if (t.contains('personal')) {
-    return (icon: Icons.person_outline, color: AppColors.primary);
-  }
-  return (icon: Icons.event_outlined, color: const Color(0xFF3B82C4));
 }
 
 // ---- Card ----------------------------------------------------------------
@@ -589,8 +621,6 @@ class _LeaveCardState extends State<_LeaveCard> {
                         const SizedBox(height: 14),
                         _idLine(r),
                         const SizedBox(height: 14),
-                        _typeRow(r),
-                        const SizedBox(height: 14),
                         _dateDurationBox(r),
                         const SizedBox(height: 14),
                         if (r.status == LeaveStatus.rejected &&
@@ -687,46 +717,6 @@ class _LeaveCardState extends State<_LeaveCard> {
     return Text(
       '${r.department} • ID: ${r.employeeId}',
       style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-    );
-  }
-
-  Widget _typeRow(LeaveRequest r) {
-    final ts = _leaveTypeStyle(r.leaveType);
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: ts.color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(ts.icon, color: ts.color, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              r.leaveType,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'REF: ${r.ref}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textMuted,
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
