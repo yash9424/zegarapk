@@ -79,6 +79,10 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
   // the photo we freeze on (a clean straight face, never a tilt).
   double _bestStraightScore = 999;
 
+  List<CameraDescription> _cameras = const [];
+  CameraLensDirection _lens = CameraLensDirection.front; // front by default
+  int _loopId = 0; // bumps each _startLoop so stale loops retire
+
   double get _progress => _embeddings.length / _steps.length;
 
   @override
@@ -98,20 +102,61 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
       return;
     }
     try {
-      final cams = await availableCameras();
-      final front = cams.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.front,
-        orElse: () => cams.first,
-      );
-      final cam =
-          CameraController(front, ResolutionPreset.medium, enableAudio: false);
-      await cam.initialize();
+      _cameras = await availableCameras();
+      await _openCamera(_lens);
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _cam = cam;
         _initializing = false;
+        _fatal = 'Could not open the camera';
       });
-      _startLoop();
+    }
+  }
+
+  /// Open (or re-open) the camera for the given lens direction.
+  Future<void> _openCamera(CameraLensDirection lens) async {
+    final desc = _cameras.firstWhere(
+      (c) => c.lensDirection == lens,
+      orElse: () => _cameras.first,
+    );
+    final cam =
+        CameraController(desc, ResolutionPreset.medium, enableAudio: false);
+    await cam.initialize();
+    if (!mounted) {
+      await cam.dispose();
+      return;
+    }
+    setState(() {
+      _cam = cam;
+      _lens = desc.lensDirection;
+      _initializing = false;
+    });
+    _startLoop();
+  }
+
+  /// Flip between the front and back camera. Resets the capture in progress.
+  Future<void> _switchCamera() async {
+    if (_cameras.length < 2 || _initializing) return;
+    _looping = false;
+    final old = _cam;
+    setState(() {
+      _cam = null;
+      _initializing = true;
+      _embeddings.clear();
+      _straightImagePath = null;
+      _bestStraightScore = 999;
+      _step = 0;
+      _seen = 0;
+      _done = false;
+      _hint = '';
+    });
+    widget.onRetake?.call();
+    await old?.dispose();
+    final next = _lens == CameraLensDirection.front
+        ? CameraLensDirection.back
+        : CameraLensDirection.front;
+    try {
+      await _openCamera(next);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -131,10 +176,12 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
 
   /// Auto-capture loop: every tick it looks for a single face in the right
   /// pose for the current step and captures it automatically. No tapping.
+  /// A loop token ensures that switching the camera (which starts a fresh
+  /// loop) cleanly retires the previous one — no two loops running at once.
   Future<void> _startLoop() async {
-    if (_looping) return;
+    final id = ++_loopId;
     _looping = true;
-    while (_looping && mounted && !_done && _fatal == null) {
+    while (_looping && mounted && !_done && _fatal == null && id == _loopId) {
       await _tick();
       // Pause longer after a successful capture so the user can reposition.
       await Future<void>.delayed(
@@ -280,6 +327,25 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
               ),
               // Centre status: % while capturing, check when done.
               if (_fatal == null) _centreBadge(percent),
+              // Flip-camera button (front ↔ back), top-right of the circle.
+              if (_fatal == null && !_done && _cameras.length > 1)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Material(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: _switchCamera,
+                      child: const Padding(
+                        padding: EdgeInsets.all(9),
+                        child: Icon(Icons.cameraswitch_rounded,
+                            color: Colors.white, size: 22),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -304,11 +370,12 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
     // After capture, freeze the circle on the captured photo (not the live
     // camera). "Retake" clears _done and brings the camera back.
     if (_done && _straightImagePath != null) {
+      // Mirror only for the front camera so the frozen photo matches the
+      // selfie-style preview; the back camera is already un-mirrored.
+      final mirror = _lens == CameraLensDirection.front;
       return Transform(
         alignment: Alignment.center,
-        // Mirror horizontally so the frozen photo matches the selfie-style
-        // live preview the user just saw (front camera).
-        transform: Matrix4.identity()..scale(-1.0, 1.0, 1.0),
+        transform: Matrix4.identity()..scale(mirror ? -1.0 : 1.0, 1.0, 1.0),
         child: Image.file(
           File(_straightImagePath!),
           fit: BoxFit.cover,

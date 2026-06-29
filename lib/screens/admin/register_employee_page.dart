@@ -20,12 +20,17 @@ class RegisterEmployeePage extends StatefulWidget {
     super.key,
     this.initialEmployeeId,
     this.initialEmployeeName,
+    this.embedded = false,
   });
 
   /// When opened from an employee's profile, this employee is pre-selected so
   /// the inline camera is ready immediately (no need to search again).
   final int? initialEmployeeId;
   final String? initialEmployeeName;
+
+  /// True when hosted as a tab inside [AdminShell] — then it renders just its
+  /// content and lets the shell provide the single bottom nav bar.
+  final bool embedded;
 
   @override
   State<RegisterEmployeePage> createState() => _RegisterEmployeePageState();
@@ -153,44 +158,49 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
 
   @override
   Widget build(BuildContext context) {
+    final content = SafeArea(
+      bottom: false,
+      child: Column(
+        children: [
+          _appBar(),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+              children: [
+                const SizedBox(height: 4),
+                const Center(
+                  child: Text(
+                    'Register Face',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                Center(child: _captureArea()),
+                const SizedBox(height: 24),
+                _formCard(),
+                const SizedBox(height: 20),
+                _registerButton(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    // As a shell tab the bottom bar comes from AdminShell; standalone it
+    // brings its own so the nav is always present.
+    if (widget.embedded) return content;
     return Scaffold(
       backgroundColor: AppColors.scaffold,
       bottomNavigationBar: AdminBottomNav(
-        currentIndex: 0,
+        currentIndex: 1, // Register Face
         onTap: (i) => goToAdminTab(context, i),
       ),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            _appBar(),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-                children: [
-                  const SizedBox(height: 4),
-                  const Center(
-                    child: Text(
-                      'Register Face',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  Center(child: _captureArea()),
-                  const SizedBox(height: 24),
-                  _formCard(),
-                  const SizedBox(height: 20),
-                  _registerButton(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+      body: content,
     );
   }
 
@@ -201,7 +211,10 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
+            // Embedded as a tab → go to Home; standalone → pop the route.
+            onPressed: () => widget.embedded
+                ? adminTab.value = 0
+                : Navigator.of(context).maybePop(),
             icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
             splashRadius: 22,
           ),

@@ -1,11 +1,27 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'app_drawer.dart';
 
 final ValueNotifier<int> adminTab = ValueNotifier<int>(0);
 
+/// Handle a bottom-nav tap. The three items are:
+///   0 = Home, 1 = Register Face, 2 = Log Out.
+/// Home & Register are shell tabs (one shared bar), so we just switch the tab
+/// after popping any sub-page that's open on top of the shell.
 void goToAdminTab(BuildContext context, int index) {
-  adminTab.value = index;
-  Navigator.of(context).popUntil((r) => r.isFirst);
+  switch (index) {
+    case 0: // Home
+      adminTab.value = 0;
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      break;
+    case 1: // Register Face
+      adminTab.value = 1;
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      break;
+    case 2: // Log Out
+      confirmAndLogout(Navigator.of(context, rootNavigator: true));
+      break;
+  }
 }
 
 class AdminBottomNav extends StatelessWidget {
@@ -19,9 +35,9 @@ class AdminBottomNav extends StatelessWidget {
   final ValueChanged<int> onTap;
 
   static const _items = <(IconData, String)>[
-    (Icons.home_outlined, 'Home'),
-    (Icons.event_available, 'Attendance'),
-    (Icons.person_outline, 'Profile'),
+    (Icons.home_rounded, 'Home'),
+    (Icons.face_retouching_natural, 'Register'),
+    (Icons.logout_rounded, 'Logout'),
   ];
 
   @override
@@ -73,7 +89,16 @@ class SlidingNav extends StatelessWidget {
     return LayoutBuilder(builder: (context, constraints) {
       final tabW = constraints.maxWidth / items.length;
       const capsuleH = 40.0;
-      const capsuleW = 118.0;
+      // Size the capsule snugly to the active label (icon + gap + text +
+      // padding), clamped so it never spills past its tab.
+      final tp = TextPainter(
+        text: TextSpan(
+          text: items[currentIndex].$2,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final capsuleW = (tp.width + 22 + 7 + 28).clamp(86.0, tabW - 6).toDouble();
       final capsuleLeft = tabW * currentIndex + (tabW - capsuleW) / 2;
 
       return Stack(

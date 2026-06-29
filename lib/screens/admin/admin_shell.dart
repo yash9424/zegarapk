@@ -42,12 +42,6 @@ class _AdminShellState extends State<AdminShell> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      AdminHomePage(user: widget.user),
-      const AdminAttendancePage(),
-      AdminProfilePage(user: widget.user),
-    ];
-
     return Scaffold(
       backgroundColor: AppColors.scaffold,
       drawer: AppDrawer(
@@ -58,13 +52,12 @@ class _AdminShellState extends State<AdminShell> {
         avatarUrl: '',
         entries: [
           DrawerEntry(Icons.home_outlined, 'Home', () => adminTab.value = 0),
+          DrawerEntry(Icons.face_retouching_natural, 'Register Face',
+              () => adminTab.value = 1),
           DrawerEntry(
-              Icons.event_available, 'Attendance', () => adminTab.value = 1),
+              Icons.event_available, 'Attendance', () => adminTab.value = 2),
           DrawerEntry(
-              Icons.person_outline, 'Profile', () => adminTab.value = 2),
-          DrawerEntry(Icons.person_add_alt_1, 'Register Employee',
-              () => Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => const RegisterEmployeePage()))),
+              Icons.person_outline, 'Profile', () => adminTab.value = 3),
           DrawerEntry(Icons.groups, 'Employee Directory',
               () => Navigator.of(context).push(MaterialPageRoute<void>(
                   builder: (_) => const EmployeeDirectoryPage()))),
@@ -73,12 +66,27 @@ class _AdminShellState extends State<AdminShell> {
                   builder: (_) => const LeaveRequestsPage()))),
         ],
       ),
-      body: IndexedStack(index: adminTab.value, children: pages),
+      body: _currentPage(),
       bottomNavigationBar: AdminBottomNav(
-        currentIndex: adminTab.value,
-        onTap: (i) => adminTab.value = i,
+        // Home & Register are tabs sharing this single bar. Attendance &
+        // Profile open from the grid / avatar; Home stays lit for those.
+        currentIndex: adminTab.value == 1 ? 1 : 0,
+        onTap: (i) => goToAdminTab(context, i),
       ),
     );
+  }
+
+  Widget _currentPage() {
+    switch (adminTab.value) {
+      case 1:
+        return const RegisterEmployeePage(embedded: true);
+      case 2:
+        return const AdminAttendancePage();
+      case 3:
+        return AdminProfilePage(user: widget.user);
+      default:
+        return AdminHomePage(user: widget.user);
+    }
   }
 }
 

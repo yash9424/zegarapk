@@ -20,7 +20,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordCtrl = TextEditingController();
 
   bool _obscure = true;
-  bool _rememberDevice = false;
   bool _loading = false;
 
   @override
@@ -109,8 +108,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 22),
                         _buildCard(),
-                        const SizedBox(height: 18),
-                        _buildFooter(),
                         const SizedBox(height: 12),
                       ],
                     ),
@@ -171,9 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
             _fieldLabel('Password'),
             const SizedBox(height: 8),
             _buildPasswordField(),
-            const SizedBox(height: 16),
-            _buildRememberRow(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
             _buildLoginButton(),
             const SizedBox(height: 22),
             _buildDivider(),
@@ -256,48 +251,6 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       validator: (v) =>
           (v == null || v.isEmpty) ? 'Enter your password' : null,
-    );
-  }
-
-  Widget _buildRememberRow() {
-    return Row(
-      children: [
-        SizedBox(
-          width: 22,
-          height: 22,
-          child: Checkbox(
-            value: _rememberDevice,
-            onChanged: (v) => setState(() => _rememberDevice = v ?? false),
-            activeColor: AppColors.primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(5),
-            ),
-            side: const BorderSide(color: AppColors.textMuted, width: 1.5),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            'Remember device',
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-          ),
-        ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: () =>
-              _showSnack('Password reset is not available in this demo.'),
-          child: Text(
-            'Forgot Password?',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -394,7 +347,8 @@ class _LoginScreenState extends State<LoginScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        icon: const Icon(Icons.fingerprint, color: AppColors.primary, size: 24),
+        icon: const Icon(Icons.face_retouching_natural,
+            color: AppColors.primary, size: 24),
         label: const Text(
           'Mark Attendance',
           style: TextStyle(
@@ -407,33 +361,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildFooter() {
-    Widget link(String text) => GestureDetector(
-          onTap: () {},
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        );
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        link('Privacy Policy'),
-        Container(
-          height: 12,
-          width: 1,
-          margin: const EdgeInsets.symmetric(horizontal: 12),
-          color: AppColors.divider,
-        ),
-        link('Terms of Service'),
-      ],
-    );
-  }
 }
 
 /// Soft concentric circles in the bottom-right corner of the background.

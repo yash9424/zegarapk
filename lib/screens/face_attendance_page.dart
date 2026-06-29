@@ -1,17 +1,19 @@
+import 'dart:async';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
-import 'admin/employee_detail_page.dart';
 import '../services/api_client.dart';
 import '../services/face/face_embedder.dart';
 import '../services/zedgift_api.dart';
 import '../theme/app_theme.dart';
-import '../widgets/user_avatar.dart';
+import '../widgets/zegar_logo.dart';
 
-/// Kiosk attendance by face. The phone detects the face and makes an
-/// embedding; the SERVER (`/attendance/face/punch`) identifies the employee
-/// and records the punch. Works from any device that's logged in once.
+/// Kiosk attendance by face. The camera auto-detects whoever stands in front
+/// of it — no tapping. The SERVER (`/attendance/face/punch`) identifies the
+/// employee and records the punch; on success the screen shows a quick
+/// confirmation and then resets itself for the next person.
 class FaceAttendancePage extends StatefulWidget {
   const FaceAttendancePage({super.key});
 
@@ -19,19 +21,47 @@ class FaceAttendancePage extends StatefulWidget {
   State<FaceAttendancePage> createState() => _FaceAttendancePageState();
 }
 
-class _FaceAttendancePageState extends State<FaceAttendancePage> {
+enum _Phase { scanning, marking, success }
+
+class _FaceAttendancePageState extends State<FaceAttendancePage>
+    with SingleTickerProviderStateMixin {
   final _detector = FaceDetector(
     options: FaceDetectorOptions(performanceMode: FaceDetectorMode.accurate),
   );
 
   CameraController? _cam;
   bool _initializing = true;
-  bool _busy = false;
   String? _fatal;
+
+  // Auto-scan state.
+  bool _busy = false; // a tick is in flight
+  bool _looping = false;
+  bool _needClear = false; // the previous person must step away before re-punch
+  _Phase _phase = _Phase.scanning;
+  String _hint = 'Look at the camera to mark attendance';
+
+  // Last successful punch (shown briefly, then cleared).
+  String _resultName = '';
+  String _resultLabel = '';
+  bool _resultIsIn = false;
+
+  // Live clock.
+  late final Timer _clockTimer;
+  DateTime _now = DateTime.now();
+
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1300),
+  )..repeat(reverse: true);
+
+  static const _innerSize = 250.0;
 
   @override
   void initState() {
     super.initState();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
     _init();
   }
 
@@ -58,15 +88,17 @@ class _FaceAttendancePageState extends State<FaceAttendancePage> {
         (c) => c.lensDirection == CameraLensDirection.front,
         orElse: () => cams.first,
       );
-      final cam = CameraController(front, ResolutionPreset.medium,
-          enableAudio: false);
+      final cam =
+          CameraController(front, ResolutionPreset.medium, enableAudio: false);
       await cam.initialize();
       if (!mounted) return;
       setState(() {
         _cam = cam;
         _initializing = false;
       });
-    } catch (e) {
+      _startLoop();
+    } catch (_) {
+      if (!mounted) return;
       setState(() {
         _initializing = false;
         _fatal = 'Could not open the camera.';
@@ -76,43 +108,67 @@ class _FaceAttendancePageState extends State<FaceAttendancePage> {
 
   @override
   void dispose() {
+    _looping = false;
+    _clockTimer.cancel();
+    _pulse.dispose();
     _cam?.dispose();
     _detector.close();
     super.dispose();
   }
 
-  Future<void> _scan() async {
+  /// Continuous auto-scan: every tick looks for a single face and, when found,
+  /// punches attendance. Pauses itself while marking / showing a result.
+  Future<void> _startLoop() async {
+    if (_looping) return;
+    _looping = true;
+    while (_looping && mounted && _fatal == null) {
+      if (_phase == _Phase.scanning && !_busy) {
+        await _tick();
+      }
+      await Future<void>.delayed(Duration(milliseconds: _busy ? 120 : 600));
+    }
+  }
+
+  Future<void> _tick() async {
     final cam = _cam;
-    if (cam == null || _busy) return;
-    setState(() => _busy = true);
+    if (cam == null || !cam.value.isInitialized) return;
+    _busy = true;
     try {
       final shot = await cam.takePicture();
       final faces =
           await _detector.processImage(InputImage.fromFilePath(shot.path));
+
       if (faces.isEmpty) {
-        _snack('No face detected. Try again.', error: true);
+        _needClear = false; // area cleared — ready for the next person
+        _setHint('Look at the camera to mark attendance');
         return;
       }
+      if (faces.length > 1) {
+        _setHint('One person at a time, please');
+        return;
+      }
+      if (_needClear) {
+        _setHint('Please step aside for the next person');
+        return;
+      }
+
       final bytes = await shot.readAsBytes();
       final emb = await FaceEmbedder.instance
           .embed(bytes, faceRect: faces.first.boundingBox);
       if (emb == null) {
-        _snack('Could not read the face.', error: true);
+        _setHint('Move into better light');
         return;
       }
 
-      // Server identifies + punches. Send the device's exact time so the
-      // punch is recorded in real time.
+      // A clear single face — try to mark attendance.
+      if (mounted) setState(() => _phase = _Phase.marking);
       final now = DateTime.now();
       final res = await ZedgiftApi.instance
           .attendanceByFace(emb, timestamp: _apiTimestamp(now));
       if (!mounted) return;
 
-      final empId =
-          int.tryParse((res['employee_id'] ?? '').toString()) ?? 0;
-      // Server's punch response has no name — fetch it for the result screen.
-      var name =
-          (res['name'] ?? res['employee_name'] ?? '').toString().trim();
+      var name = (res['name'] ?? res['employee_name'] ?? '').toString().trim();
+      final empId = int.tryParse((res['employee_id'] ?? '').toString()) ?? 0;
       if (name.isEmpty && empId > 0) {
         try {
           name = (await ZedgiftApi.instance.employeeDetail(empId)).name;
@@ -120,37 +176,53 @@ class _FaceAttendancePageState extends State<FaceAttendancePage> {
         if (!mounted) return;
       }
       if (name.isEmpty) name = 'Employee';
-      // Server uses `type` ("in"/"out"); also accept punch_status/status.
       final status =
           (res['type'] ?? res['punch_status'] ?? res['status'] ?? '')
               .toString()
               .toLowerCase();
-      final isIn = status == 'in';
-      final label = status == 'in'
-          ? 'Clocked IN'
-          : status == 'out'
-              ? 'Clocked OUT'
-              : 'Attendance Marked';
-      // Always show DD-MM-YYYY + 12-hour, regardless of server format.
-      final timeText = _displayStamp(now);
 
-      Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => _AttendanceResultPage(
-          employeeId: empId,
-          name: name,
-          statusLabel: label,
-          isIn: isIn,
-          timeText: timeText,
-        ),
-      ));
+      setState(() {
+        _phase = _Phase.success;
+        _resultName = name;
+        _resultIsIn = status == 'in';
+        _resultLabel = status == 'in'
+            ? 'Clocked IN'
+            : status == 'out'
+                ? 'Clocked OUT'
+                : 'Attendance Marked';
+        _needClear = true; // block re-punch until this person leaves
+      });
+
+      // Auto-reset for the next employee.
+      Future<void>.delayed(const Duration(seconds: 4), () {
+        if (!mounted) return;
+        setState(() {
+          _phase = _Phase.scanning;
+          _hint = 'Look at the camera to mark attendance';
+        });
+      });
     } on ApiException catch (e) {
       if (!mounted) return;
-      _snack(e.message, error: true); // e.g. "Face not recognized."
+      setState(() {
+        _phase = _Phase.scanning;
+        _hint = e.message; // e.g. "Face not recognized."
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
     } catch (_) {
       if (!mounted) return;
-      _snack('Scan failed. Try again.', error: true);
+      setState(() {
+        _phase = _Phase.scanning;
+        _hint = 'Scan failed. Try again.';
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
     } finally {
-      if (mounted) setState(() => _busy = false);
+      _busy = false;
+    }
+  }
+
+  void _setHint(String h) {
+    if (mounted && _phase == _Phase.scanning && _hint != h) {
+      setState(() => _hint = h);
     }
   }
 
@@ -160,34 +232,28 @@ class _FaceAttendancePageState extends State<FaceAttendancePage> {
   String _apiTimestamp(DateTime t) =>
       '${t.year}-${_2(t.month)}-${_2(t.day)} ${_2(t.hour)}:${_2(t.minute)}:${_2(t.second)}';
 
-  /// Display format: DD-MM-YYYY + 12-hour (e.g. 16-06-2026  09:05 AM).
-  String _displayStamp(DateTime t) {
-    final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
-    final ap = t.hour < 12 ? 'AM' : 'PM';
-    return '${_2(t.day)}-${_2(t.month)}-${t.year}  $h:${_2(t.minute)} $ap';
+  static const _weekdays = [
+    'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY',
+  ];
+  static const _months = [
+    'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+    'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
+  ];
+
+  String get _clockText {
+    final h = _now.hour % 12 == 0 ? 12 : _now.hour % 12;
+    final ap = _now.hour < 12 ? 'AM' : 'PM';
+    return '${_2(h)}:${_2(_now.minute)}:${_2(_now.second)} $ap';
   }
 
-  void _snack(String msg, {bool error = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: error ? AppColors.primaryDark : AppColors.textPrimary,
-      ));
-  }
+  String get _dateText =>
+      '${_weekdays[_now.weekday - 1]}, ${_months[_now.month - 1]} ${_now.day}, ${_now.year}';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('Face Attendance'),
-      ),
-      body: _body(),
+      backgroundColor: AppColors.scaffold,
+      body: SafeArea(child: _body()),
     );
   }
 
@@ -198,169 +264,261 @@ class _FaceAttendancePageState extends State<FaceAttendancePage> {
       );
     }
     if (_fatal != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(_fatal!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 16)),
-        ),
+      return Column(
+        children: [
+          _header(),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Text(_fatal!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: AppColors.textSecondary, fontSize: 16)),
+              ),
+            ),
+          ),
+        ],
       );
     }
-    final cam = _cam;
-    if (cam == null) return const SizedBox.shrink();
 
     return Column(
       children: [
-        Expanded(child: CameraPreview(cam)),
-        Container(
-          color: Colors.black,
-          child: SafeArea(
-            // Keep the Scan button clear of the phone's bottom navigation bar.
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 18, 24, 20),
-              child: Column(
-                children: [
-                  const Text('Position your face in the frame and tap Scan',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, fontSize: 15)),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton.icon(
-                  onPressed: _busy ? null : _scan,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  icon: _busy
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2.2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white)),
-                        )
-                      : const Icon(Icons.face),
-                  label: Text(_busy ? 'Scanning...' : 'Scan Face'),
-                ),
-              ),
-                ],
-              ),
-            ),
+        _header(),
+        const SizedBox(height: 8),
+        _clock(),
+        const Spacer(),
+        _cameraCircle(),
+        const SizedBox(height: 24),
+        // Fixed height so the circle never shifts when the status text changes
+        // (hint ↔ "Marking…" ↔ name + badge are different heights).
+        SizedBox(height: 120, child: Center(child: _statusArea())),
+        const Spacer(flex: 2),
+      ],
+    );
+  }
+
+  /// Top bar with a back arrow and the ZEGAR logo, like the rest of the app.
+  Widget _header() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 6, 16, 6),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+            splashRadius: 22,
+          ),
+          const Spacer(),
+          const ZegarLogo(fontSize: 22),
+          const Spacer(),
+          // Balance the back button so the logo stays centered.
+          const SizedBox(width: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _clock() {
+    return Column(
+      children: [
+        Text(
+          _clockText,
+          style: const TextStyle(
+            color: AppColors.primary,
+            fontSize: 34,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _dateText,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.6,
           ),
         ),
       ],
     );
   }
+
+  Widget _cameraCircle() {
+    const outer = 296.0;
+    final glow =
+        _phase == _Phase.success ? const Color(0xFF2BB673) : AppColors.primary;
+
+    return SizedBox(
+      width: outer,
+      height: outer,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Dark frame with an ambient coloured glow.
+          Container(
+            width: outer,
+            height: outer,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const RadialGradient(
+                colors: [Color(0xFF232A38), Color(0xFF11151E)],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: glow.withValues(alpha: 0.45),
+                  blurRadius: 38,
+                  spreadRadius: 3,
+                ),
+              ],
+            ),
+          ),
+          // Pulsing ring while scanning.
+          if (_phase == _Phase.scanning)
+            AnimatedBuilder(
+              animation: _pulse,
+              builder: (_, __) {
+                final v = _pulse.value;
+                return Container(
+                  width: _innerSize + 16 + v * 18,
+                  height: _innerSize + 16 + v * 18,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.55 - v * 0.45),
+                      width: 3,
+                    ),
+                  ),
+                );
+              },
+            ),
+          // Live camera.
+          ClipOval(
+            child: SizedBox(
+              width: _innerSize,
+              height: _innerSize,
+              child: _preview(),
+            ),
+          ),
+          // Marking spinner.
+          if (_phase == _Phase.marking)
+            Container(
+              width: _innerSize,
+              height: _innerSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black.withValues(alpha: 0.4),
+              ),
+              alignment: Alignment.center,
+              child: const CircularProgressIndicator(color: Colors.white),
+            ),
+          // Success animation.
+          if (_phase == _Phase.success) const _SuccessOverlay(size: _innerSize),
+        ],
+      ),
+    );
+  }
+
+  Widget _preview() {
+    final cam = _cam;
+    if (cam == null || !cam.value.isInitialized) {
+      return Container(color: const Color(0xFF11151E));
+    }
+    final ps = cam.value.previewSize;
+    return FittedBox(
+      fit: BoxFit.cover,
+      child: SizedBox(
+        width: ps?.height ?? _innerSize,
+        height: ps?.width ?? _innerSize,
+        child: CameraPreview(cam),
+      ),
+    );
+  }
+
+  Widget _statusArea() {
+    if (_phase == _Phase.success) {
+      final accent =
+          _resultIsIn ? const Color(0xFF2BB673) : AppColors.primary;
+      return Column(
+        children: [
+          Text(
+            _resultName,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 23,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: Text(
+              _resultLabel,
+              style: TextStyle(
+                color: accent,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    if (_phase == _Phase.marking) {
+      return Text(
+        'Marking attendance…',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textSecondary,
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Text(
+        _hint,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
+  }
 }
 
-/// Full-screen confirmation shown after a successful punch.
-class _AttendanceResultPage extends StatelessWidget {
-  const _AttendanceResultPage({
-    required this.employeeId,
-    required this.name,
-    required this.statusLabel,
-    required this.isIn,
-    required this.timeText,
-  });
-
-  final int employeeId;
-  final String name;
-  final String statusLabel;
-  final bool isIn;
-  final String timeText;
+/// Green check that scales in over the camera circle on a successful punch.
+class _SuccessOverlay extends StatelessWidget {
+  const _SuccessOverlay({required this.size});
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    final accent = isIn ? const Color(0xFF2BB673) : AppColors.primary;
-    return Scaffold(
-      backgroundColor: AppColors.scaffold,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check_circle, color: accent, size: 64),
-              const SizedBox(height: 18),
-              UserAvatar(name: name, radius: 50, ring: true),
-              const SizedBox(height: 14),
-              Text(
-                name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: TextStyle(
-                      color: accent,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                  timeText.isEmpty
-                      ? 'Marked via Face'
-                      : 'Marked via Face • $timeText',
-                  style:
-                      TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-              const SizedBox(height: 32),
-              if (employeeId > 0)
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => EmployeeDetailPage(
-                            employeeId: employeeId, fallbackName: name),
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
-                    ),
-                    icon: const Icon(Icons.badge_outlined),
-                    label: const Text('View Full Profile'),
-                  ),
-                ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  // Done returns to the login screen (the first route),
-                  // closing both the result page and the scan page.
-                  onPressed: () => Navigator.of(context)
-                      .popUntil((route) => route.isFirst),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('Done',
-                      style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.5, end: 1.0),
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.elasticOut,
+      builder: (_, v, __) => Opacity(
+        opacity: v.clamp(0.0, 1.0),
+        child: Transform.scale(
+          scale: v,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF2BB673).withValues(alpha: 0.82),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.check_rounded, color: Colors.white, size: 96),
           ),
         ),
       ),
