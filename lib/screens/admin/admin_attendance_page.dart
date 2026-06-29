@@ -416,13 +416,15 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
   Widget _statRow(int present, int inCount, int outCount) {
     return Row(
       children: [
-        Expanded(child: _statCard('PRESENT', '$present', AppColors.primary)),
+        Expanded(
+            child: _statCard('TOTAL PRESENT', '$present', AppColors.primary)),
         const SizedBox(width: 10),
         Expanded(
-            child: _statCard('IN', '$inCount', const Color(0xFF2BB673))),
+            child: _statCard('TOTAL IN', '$inCount', const Color(0xFF2BB673))),
         const SizedBox(width: 10),
         Expanded(
-            child: _statCard('OUT', '$outCount', const Color(0xFFB8860B))),
+            child:
+                _statCard('TOTAL OUT', '$outCount', const Color(0xFFB8860B))),
       ],
     );
   }
@@ -468,11 +470,6 @@ class _AttCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sub = [
-      'ID ${row.customId}',
-      if (row.departmentName.isNotEmpty) row.departmentName,
-    ].join(' • ');
-
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(16),
@@ -517,11 +514,19 @@ class _AttCard extends StatelessWidget {
                             color: AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          sub,
-                          style: TextStyle(
-                              fontSize: 12, color: AppColors.textSecondary),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            _badge(Icons.badge_outlined, 'ID ${row.customId}'),
+                            if (row.departmentName.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: _badge(
+                                    Icons.apartment, row.departmentName,
+                                    muted: true),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
@@ -541,6 +546,35 @@ class _AttCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _badge(IconData icon, String text, {bool muted = false}) {
+    final color = muted ? AppColors.textSecondary : AppColors.primary;
+    final bg = muted ? const Color(0xFFEDEFF4) : AppColors.softRedTint;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

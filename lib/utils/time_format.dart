@@ -1,22 +1,21 @@
 // Time display helpers shared across attendance screens.
 
-/// Converts a backend punch time into a friendly 12-hour **IST** label like
-/// `5:13 PM`.
+/// Converts a backend punch time into a friendly 12-hour label like `5:13 PM`.
 ///
-/// The ZedGift API records punch times in **UTC**, so we shift by +5:30 to
-/// show India Standard Time (otherwise an 11:40 AM punch would show as
-/// 6:10 AM). Handles the shapes the API returns:
+/// The ZedGift API already records punch times in **local IST** (verified live:
+/// a punch made at ~16:06 IST is stored as `15:59:55`), so we do NOT shift the
+/// clock — we only reformat it to 12-hour. Handles the shapes the API returns:
 /// * blank / all-zero (`00:00:00`, i.e. a missing punch) → `''`
 /// * bare time: `09:15`, `09:15:00`
 /// * full datetime: `2026-06-22 09:15:00`, ISO `2026-06-22T09:15:00`
-/// * already 12-hour (contains AM/PM) → returned unchanged (no shift)
+/// * already 12-hour (contains AM/PM) → returned unchanged
 ///
 /// Anything it can't parse is returned as-is so we never hide real data.
 String to12Hour(String raw) {
   final s = raw.trim();
   if (s.isEmpty) return '';
 
-  // Already a local 12-hour string — leave as-is (don't shift it again).
+  // Already a 12-hour string — leave as-is.
   final upper = s.toUpperCase();
   if (upper.contains('AM') || upper.contains('PM')) return s;
 
@@ -41,13 +40,9 @@ String to12Hour(String raw) {
   // Treat an all-zero time as blank so the UI shows "—" instead of a time.
   if (h == 0 && m == 0 && sec == 0) return '';
 
-  // Punch time is stored in UTC — shift +5:30 to IST, wrapping past midnight.
-  final ist = (h * 60 + m + 330) % 1440;
-  final hour24 = ist ~/ 60;
-  final mm = ist % 60;
-
-  final period = hour24 >= 12 ? 'PM' : 'AM';
-  var hour12 = hour24 % 12;
+  // Time is already IST — just format it, no shift.
+  final period = h >= 12 ? 'PM' : 'AM';
+  var hour12 = h % 12;
   if (hour12 == 0) hour12 = 12;
-  return '$hour12:${mm.toString().padLeft(2, '0')} $period';
+  return '$hour12:${m.toString().padLeft(2, '0')} $period';
 }

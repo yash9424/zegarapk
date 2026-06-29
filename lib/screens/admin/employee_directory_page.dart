@@ -434,11 +434,6 @@ class _EmployeeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final role = employee.designationName.isEmpty
-        ? employee.typeName
-        : employee.designationName;
-    final team =
-        employee.departmentName.isEmpty ? '—' : employee.departmentName;
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(16),
@@ -480,28 +475,19 @@ class _EmployeeCard extends StatelessWidget {
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'ID ${employee.customId} • $role',
-                      style: TextStyle(
-                          fontSize: 14, color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 7),
                     Row(
                       children: [
-                        const Icon(Icons.business,
-                            size: 14, color: AppColors.primary),
-                        const SizedBox(width: 5),
-                        Expanded(
-                          child: Text(
-                            team,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
+                        _badge(Icons.badge_outlined,
+                            'ID ${employee.customId}'),
+                        if (employee.departmentName.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: _badge(
+                                Icons.apartment, employee.departmentName,
+                                muted: true),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ],
@@ -511,6 +497,35 @@ class _EmployeeCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _badge(IconData icon, String text, {bool muted = false}) {
+    final color = muted ? AppColors.textSecondary : AppColors.primary;
+    final bg = muted ? const Color(0xFFEDEFF4) : AppColors.softRedTint;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
