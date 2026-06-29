@@ -72,18 +72,24 @@ class AdminHomePage extends StatelessWidget {
   /// The 2-column quick-action grid (Employees, Leaves, Loan, Advance,
   /// Attendance, Salary). Pages that don't exist yet show "Coming soon".
   Widget _menuGrid(BuildContext context) {
-    final items = <(IconData, String, VoidCallback)>[
-      (Icons.groups_2_rounded, 'Employees', () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const EmployeeDirectoryPage()))),
-      (Icons.calendar_month_rounded, 'Leaves', () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const LeaveRequestsPage()))),
-      (Icons.account_balance_rounded, 'Loan', () => _openSection(context,
-          'Loan', "Pick an employee to view their loan / deductions.", 4)),
-      (Icons.account_balance_wallet_rounded, 'Advance', () => _openSection(
-          context, 'Advance', "Pick an employee to view their advances.", 3)),
-      (Icons.fingerprint_rounded, 'Attendance', () => adminTab.value = 2),
-      (Icons.payments_rounded, 'Salary', () => _openSection(
-          context, 'Salary', "Pick an employee to view their payroll.", 1)),
+    final items = <(IconData, Color, String, VoidCallback)>[
+      (Icons.groups_2_rounded, const Color(0xFF3B82C4), 'Employees',
+          () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => const EmployeeDirectoryPage()))),
+      (Icons.calendar_month_rounded, const Color(0xFF2BB673), 'Leaves',
+          () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => const LeaveRequestsPage()))),
+      (Icons.account_balance_rounded, const Color(0xFF7C5CFC), 'Loan',
+          () => _openSection(context, 'Loan',
+              "Pick an employee to view their loan / deductions.", 4)),
+      (Icons.account_balance_wallet_rounded, const Color(0xFFE8923B), 'Advance',
+          () => _openSection(context, 'Advance',
+              "Pick an employee to view their advances.", 3)),
+      (Icons.fingerprint_rounded, AppColors.primary, 'Attendance',
+          () => adminTab.value = 2),
+      (Icons.payments_rounded, const Color(0xFF14B8A6), 'Salary',
+          () => _openSection(
+              context, 'Salary', "Pick an employee to view their payroll.", 1)),
     ];
     return Column(
       children: [
@@ -105,20 +111,22 @@ class AdminHomePage extends StatelessWidget {
     );
   }
 
-  Widget _menuCard((IconData, String, VoidCallback) item) {
+  Widget _menuCard((IconData, Color, String, VoidCallback) item) {
+    const accent = AppColors.primary; // single red theme for all icons
     return Material(
       color: AppColors.surface,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: item.$3,
+        borderRadius: BorderRadius.circular(20),
+        onTap: item.$4,
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.softRedTint, width: 1.5),
+            border:
+                Border.all(color: accent.withValues(alpha: 0.22), width: 1.4),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.06),
+                color: accent.withValues(alpha: 0.10),
                 blurRadius: 16,
                 offset: const Offset(0, 8),
               ),
@@ -132,14 +140,17 @@ class AdminHomePage extends StatelessWidget {
                 height: 58,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [AppColors.primaryLight, AppColors.primary],
+                    colors: [
+                      Color.lerp(accent, Colors.white, 0.30)!,
+                      accent,
+                    ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.30),
+                      color: accent.withValues(alpha: 0.35),
                       blurRadius: 12,
                       offset: const Offset(0, 6),
                     ),
@@ -149,7 +160,7 @@ class AdminHomePage extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                item.$2,
+                item.$3,
                 style: const TextStyle(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w700,

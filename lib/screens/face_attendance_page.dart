@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -24,7 +25,7 @@ class FaceAttendancePage extends StatefulWidget {
 enum _Phase { scanning, marking, success }
 
 class _FaceAttendancePageState extends State<FaceAttendancePage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _detector = FaceDetector(
     options: FaceDetectorOptions(performanceMode: FaceDetectorMode.accurate),
   );
@@ -53,6 +54,12 @@ class _FaceAttendancePageState extends State<FaceAttendancePage>
     vsync: this,
     duration: const Duration(milliseconds: 1300),
   )..repeat(reverse: true);
+
+  // Continuous rotation for the red arc that sweeps around the circle.
+  late final AnimationController _rotate = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  )..repeat();
 
   static const _innerSize = 250.0;
 
@@ -111,6 +118,7 @@ class _FaceAttendancePageState extends State<FaceAttendancePage>
     _looping = false;
     _clockTimer.cancel();
     _pulse.dispose();
+    _rotate.dispose();
     _cam?.dispose();
     _detector.close();
     super.dispose();
@@ -378,6 +386,20 @@ class _FaceAttendancePageState extends State<FaceAttendancePage>
                 );
               },
             ),
+          // Red arc sweeping around the circle (same red-line vibe as the
+          // header). Turns green once attendance is marked.
+          AnimatedBuilder(
+            animation: _rotate,
+            builder: (_, __) => CustomPaint(
+              size: const Size.square(_innerSize + 30),
+              painter: _SweepArcPainter(
+                _rotate.value,
+                _phase == _Phase.success
+                    ? const Color(0xFF2BB673)
+                    : AppColors.primary,
+              ),
+            ),
+          ),
           // Live camera.
           ClipOval(
             child: SizedBox(
@@ -509,4 +531,43 @@ class _SuccessOverlay extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A short coloured arc with a comet-like fade that rotates around the camera
+/// circle — the circular cousin of the header's sweeping red line.
+class _SweepArcPainter extends CustomPainter {
+  _SweepArcPainter(this.t, this.color);
+  final double t; // 0..1 rotation progress
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.width / 2 - 3;
+    const sweep = math.pi * 0.42; // ~75° comet tail
+    final rect = Rect.fromCircle(center: Offset.zero, radius: radius);
+
+    // Rotate the whole canvas so the arc spins continuously — the gradient
+    // seam stays at the transparent tail, so there's no visible "stop".
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(t * 2 * math.pi);
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round
+      ..shader = SweepGradient(
+        startAngle: 0,
+        endAngle: sweep,
+        colors: [color.withValues(alpha: 0.0), color],
+      ).createShader(rect);
+
+    canvas.drawArc(rect, 0, sweep, false, paint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _SweepArcPainter old) =>
+      old.t != t || old.color != color;
 }
