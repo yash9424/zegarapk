@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/mock_auth.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
-import '../../widgets/user_avatar.dart';
-import '../../widgets/zegar_logo.dart';
+import '../../widgets/app_header.dart';
 import 'employee_directory_page.dart';
 import 'leave_requests_page.dart';
 import 'select_employee_page.dart';
@@ -20,7 +19,10 @@ class AdminHomePage extends StatelessWidget {
       bottom: false,
       child: Column(
         children: [
-          _AppBar(name: user.name, avatarUrl: user.avatarUrl),
+          AppHeader(
+            leadingIcon: Icons.menu,
+            onLeadingTap: () => Scaffold.of(context).openDrawer(),
+          ),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
@@ -172,37 +174,4 @@ class AdminHomePage extends StatelessWidget {
     ));
   }
 
-}
-
-class _AppBar extends StatelessWidget {
-  const _AppBar({required this.name, this.avatarUrl = ''});
-
-  final String name;
-  final String avatarUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 16, 6),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Scaffold.of(context).openDrawer(),
-            icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-            splashRadius: 22,
-          ),
-          const Spacer(),
-          const ZegarLogo(fontSize: 22),
-          const Spacer(),
-          // Real logged-in admin — tap to open the profile page. Shows the
-          // login `avatar_url` photo, falling back to initials.
-          GestureDetector(
-            onTap: () => adminTab.value = 3,
-            child: UserAvatar(
-                name: name, imageUrl: avatarUrl, radius: 20, ring: true),
-          ),
-        ],
-      ),
-    );
-  }
 }

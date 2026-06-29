@@ -8,7 +8,7 @@ import '../services/api_client.dart';
 import '../services/face/face_embedder.dart';
 import '../services/zedgift_api.dart';
 import '../theme/app_theme.dart';
-import '../widgets/zegar_logo.dart';
+import '../widgets/app_header.dart';
 
 /// Kiosk attendance by face. The camera auto-detects whoever stands in front
 /// of it — no tapping. The SERVER (`/attendance/face/punch`) identifies the
@@ -298,25 +298,10 @@ class _FaceAttendancePageState extends State<FaceAttendancePage>
     );
   }
 
-  /// Top bar with a back arrow and the ZEGAR logo, like the rest of the app.
+  /// Top bar — same shared header as the rest of the app, but with no admin
+  /// avatar (this is the public kiosk, not an admin session).
   Widget _header() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 6, 16, 6),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            splashRadius: 22,
-          ),
-          const Spacer(),
-          const ZegarLogo(fontSize: 22),
-          const Spacer(),
-          // Balance the back button so the logo stays centered.
-          const SizedBox(width: 40),
-        ],
-      ),
-    );
+    return const AppHeader(leadingIcon: Icons.arrow_back, showAvatar: false);
   }
 
   Widget _clock() {

@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../data/mock_data.dart';
-import '../../services/mock_auth.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
-import '../../widgets/user_avatar.dart';
-import '../../widgets/zegar_logo.dart';
+import '../../widgets/app_header.dart';
 import '../leave_form_page.dart';
 
 class LeaveRequestsPage extends StatefulWidget {
@@ -250,27 +248,7 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
   }
 
   Widget _appBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 16, 6),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-            splashRadius: 22,
-          ),
-          const Spacer(),
-          const ZegarLogo(fontSize: 22),
-          const Spacer(),
-          UserAvatar(
-            name: MockAuth.instance.currentUser?.name ?? 'Admin',
-            imageUrl: MockAuth.instance.currentUser?.avatarUrl,
-            radius: 20,
-            ring: true,
-          ),
-        ],
-      ),
-    );
+    return const AppHeader(leadingIcon: Icons.arrow_back);
   }
 
   Widget _filterChips() {

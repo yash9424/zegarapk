@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../services/mock_auth.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_drawer.dart';
+import '../../widgets/app_header.dart';
 import '../../widgets/user_avatar.dart';
-import '../../widgets/zegar_logo.dart';
 
 class AdminProfilePage extends StatelessWidget {
   const AdminProfilePage({super.key, required this.user});
@@ -106,21 +106,9 @@ class AdminProfilePage extends StatelessWidget {
   }
 
   Widget _appBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 16, 6),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Scaffold.of(context).openDrawer(),
-            icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-            splashRadius: 22,
-          ),
-          const Spacer(),
-          const ZegarLogo(fontSize: 22),
-          const Spacer(),
-          UserAvatar(name: user.name, imageUrl: user.avatarUrl, radius: 18),
-        ],
-      ),
+    return AppHeader(
+      leadingIcon: Icons.menu,
+      onLeadingTap: () => Scaffold.of(context).openDrawer(),
     );
   }
 

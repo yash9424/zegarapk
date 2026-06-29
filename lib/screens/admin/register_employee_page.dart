@@ -4,14 +4,13 @@ import 'package:flutter/material.dart';
 
 import '../../models/api_models.dart';
 import '../../services/face/face_store.dart';
-import '../../services/mock_auth.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
+import '../../widgets/app_header.dart';
 import '../../widgets/inline_face_enroll.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/user_avatar.dart';
-import '../../widgets/zegar_logo.dart';
 
 /// Pick an existing employee (real list from the API). Selecting one fills the
 /// detail fields, and the face is registered via the camera enrol flow.
@@ -205,30 +204,12 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
   }
 
   Widget _appBar() {
-    final name = MockAuth.instance.currentUser?.name ?? 'Admin';
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 6, 16, 6),
-      child: Row(
-        children: [
-          IconButton(
-            // Embedded as a tab → go to Home; standalone → pop the route.
-            onPressed: () => widget.embedded
-                ? adminTab.value = 0
-                : Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            splashRadius: 22,
-          ),
-          const Spacer(),
-          const ZegarLogo(fontSize: 22),
-          const Spacer(),
-          UserAvatar(
-            name: name,
-            imageUrl: MockAuth.instance.currentUser?.avatarUrl,
-            radius: 20,
-            ring: true,
-          ),
-        ],
-      ),
+    return AppHeader(
+      leadingIcon: Icons.arrow_back,
+      // Embedded as a tab → go to Home; standalone → pop the route.
+      onLeadingTap: () => widget.embedded
+          ? adminTab.value = 0
+          : Navigator.of(context).maybePop(),
     );
   }
 

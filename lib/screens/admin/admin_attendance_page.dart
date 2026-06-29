@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../models/api_models.dart';
-import '../../services/mock_auth.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/time_format.dart';
 import '../../widgets/admin_bottom_nav.dart';
+import '../../widgets/app_header.dart';
 import '../../widgets/employee_picker_sheet.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/user_avatar.dart';
-import '../../widgets/zegar_logo.dart';
 import 'employee_detail_page.dart';
 
 /// One employee's attendance for the selected day. Built by merging the full
@@ -249,28 +248,10 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
   }
 
   Widget _appBar() {
-    final name = MockAuth.instance.currentUser?.name ?? 'Admin';
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 16, 6),
-      child: Row(
-        children: [
-          IconButton(
-            // Back goes to the Home tab.
-            onPressed: () => adminTab.value = 0,
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            splashRadius: 22,
-          ),
-          const Spacer(),
-          const ZegarLogo(fontSize: 22),
-          const Spacer(),
-          UserAvatar(
-            name: name,
-            imageUrl: MockAuth.instance.currentUser?.avatarUrl,
-            radius: 20,
-            ring: true,
-          ),
-        ],
-      ),
+    // Back goes to the Home tab.
+    return AppHeader(
+      leadingIcon: Icons.arrow_back,
+      onLeadingTap: () => adminTab.value = 0,
     );
   }
 
