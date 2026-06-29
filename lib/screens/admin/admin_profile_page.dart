@@ -34,11 +34,9 @@ class AdminProfilePage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                _employeeIdRow(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 22),
                 _section(
-                  'PERSONAL DETAILS',
+                  '',
                   [
                     _InfoRow(
                       icon: Icons.person_outline,
@@ -47,17 +45,13 @@ class AdminProfilePage extends StatelessWidget {
                       value: user.name.isEmpty ? '—' : user.name,
                     ),
                     _InfoRow(
-                      icon: Icons.badge_outlined,
-                      iconColor: AppColors.textSecondary,
-                      label: 'User ID',
-                      value: user.userId.isEmpty ? '—' : user.userId,
+                      icon: Icons.shield_outlined,
+                      iconColor: AppColors.primary,
+                      label: 'Role',
+                      value: user.role == UserRole.admin
+                          ? 'Administrator'
+                          : 'Employee',
                     ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                _section(
-                  'CONTACT',
-                  [
                     _InfoRow(
                       icon: Icons.mail_outline,
                       iconColor: AppColors.primary,
@@ -66,29 +60,26 @@ class AdminProfilePage extends StatelessWidget {
                     ),
                     _InfoRow(
                       icon: Icons.phone_outlined,
-                      iconColor: AppColors.textSecondary,
+                      iconColor: AppColors.primary,
                       label: 'Phone',
                       value: user.phone.isEmpty ? '—' : user.phone,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                _section(
-                  'ACCOUNT',
-                  [
                     _InfoRow(
                       icon: Icons.business_outlined,
                       iconColor: AppColors.primary,
-                      label: 'Company',
-                      value: user.companyName.isNotEmpty
-                          ? user.companyName
-                          : (user.companyId.isEmpty
-                              ? '—'
-                              : 'ID ${user.companyId}'),
+                      label: 'Company Name',
+                      value:
+                          user.companyName.isEmpty ? '—' : user.companyName,
+                    ),
+                    _InfoRow(
+                      icon: Icons.tag,
+                      iconColor: AppColors.primary,
+                      label: 'Company ID',
+                      value: user.companyId.isEmpty ? '—' : user.companyId,
                     ),
                     _InfoRow(
                       icon: Icons.verified_user_outlined,
-                      iconColor: AppColors.textSecondary,
+                      iconColor: AppColors.primary,
                       label: 'Account Status',
                       value: user.active ? 'Active' : 'Inactive',
                       trailing: user.active ? _activeBadge() : null,
@@ -145,40 +136,6 @@ class AdminProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _employeeIdRow() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          'USER ID:',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.6,
-            color: AppColors.textSecondary,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppColors.softRedTint,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            user.userId.isEmpty ? '—' : user.userId,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-              color: AppColors.primary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _section(String title, List<Widget> rows) {
     return Container(
       decoration: BoxDecoration(
@@ -192,20 +149,22 @@ class AdminProfilePage extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+      padding: EdgeInsets.fromLTRB(18, title.isEmpty ? 14 : 18, 18, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
-              color: AppColors.primary.withValues(alpha: 0.85),
+          if (title.isNotEmpty) ...[
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+                color: AppColors.primary.withValues(alpha: 0.85),
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
+          ],
           for (var i = 0; i < rows.length; i++) ...[
             rows[i],
             if (i != rows.length - 1) const SizedBox(height: 16),

@@ -42,14 +42,21 @@ class _AdminShellState extends State<AdminShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.scaffold,
-      drawer: AppDrawer(
+    return PopScope(
+      // On a non-Home tab the system/gesture back returns to Home instead of
+      // leaving the admin panel. On Home, back behaves normally (exits).
+      canPop: adminTab.value == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && adminTab.value != 0) adminTab.value = 0;
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.scaffold,
+        drawer: AppDrawer(
         name: widget.user.name,
         subtitle: widget.user.email.isNotEmpty
             ? widget.user.email
             : 'Administrator',
-        avatarUrl: '',
+        avatarUrl: widget.user.avatarUrl,
         entries: [
           DrawerEntry(Icons.home_outlined, 'Home', () => adminTab.value = 0),
           DrawerEntry(Icons.face_retouching_natural, 'Register Face',
@@ -72,6 +79,7 @@ class _AdminShellState extends State<AdminShell> {
         // Profile open from the grid / avatar; Home stays lit for those.
         currentIndex: adminTab.value == 1 ? 1 : 0,
         onTap: (i) => goToAdminTab(context, i),
+      ),
       ),
     );
   }
