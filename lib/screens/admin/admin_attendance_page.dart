@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../models/api_models.dart';
 import '../../services/mock_auth.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/time_format.dart';
+import '../../widgets/admin_bottom_nav.dart';
+import '../../widgets/employee_picker_sheet.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/zegar_logo.dart';
@@ -43,8 +46,8 @@ class AdminAttendancePage extends StatefulWidget {
 }
 
 class _AdminAttendancePageState extends State<AdminAttendancePage> {
-  final _searchCtrl = TextEditingController();
-  String _query = '';
+  final String _query = ''; // kept so _filtered compiles; search is now a sheet
+  List<EmployeeListItem> _roster = const []; // lazy-loaded for the picker
 
   bool _loading = true;
   String? _error;
@@ -87,7 +90,6 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
 
   @override
   void dispose() {
-    _searchCtrl.dispose();
     _dayScroll.dispose();
     super.dispose();
   }
@@ -253,8 +255,9 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Scaffold.of(context).openDrawer(),
-            icon: const Icon(Icons.menu, color: AppColors.textPrimary),
+            // Back goes to the Home tab.
+            onPressed: () => adminTab.value = 0,
+            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
             splashRadius: 22,
           ),
           const Spacer(),
@@ -275,16 +278,39 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
       child: SearchField(
-        controller: _searchCtrl,
         hint: 'Search employees or departments...',
-        onChanged: (v) => setState(() => _query = v),
-        onClear: () {
-          _searchCtrl.clear();
-          setState(() => _query = '');
-        },
-        hasText: _query.isNotEmpty,
+        onTap: _openPicker,
       ),
     );
+  }
+
+  /// Open the shared employee picker; on selection, show that employee's
+  /// profile on the Attendance tab. Loads the roster lazily on first use.
+  Future<void> _openPicker() async {
+    if (_roster.isEmpty) {
+      try {
+        _roster = await ZedgiftApi.instance.employees();
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(
+            content: Text('Could not load employees.'),
+            behavior: SnackBarBehavior.floating,
+          ));
+        return;
+      }
+    }
+    if (!mounted) return;
+    final picked = await pickEmployee(context, _roster);
+    if (picked == null || !mounted) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => EmployeeDetailPage(
+        employeeId: picked.id,
+        fallbackName: picked.name,
+        initialTab: 5, // Attendance tab
+      ),
+    ));
   }
 
   /// "Daily Attendance" title with the month dropdown on the right.

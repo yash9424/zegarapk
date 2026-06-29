@@ -5,6 +5,7 @@ import '../../services/mock_auth.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
+import '../../widgets/employee_picker_sheet.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/zegar_logo.dart';
@@ -19,7 +20,6 @@ class EmployeeDirectoryPage extends StatefulWidget {
 }
 
 class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
-  final _searchCtrl = TextEditingController();
   String _query = '';
   final Set<String> _depts = {}; // empty = all departments
   final Set<String> _statuses = {}; // subset of {active, inactive}; empty = all
@@ -33,12 +33,6 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
   void initState() {
     super.initState();
     _load();
-  }
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -183,16 +177,23 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
       child: SearchField(
-        controller: _searchCtrl,
         hint: 'Search employees, departments, or roles...',
-        onChanged: (v) => setState(() => _query = v),
-        onClear: () {
-          _searchCtrl.clear();
-          setState(() => _query = '');
-        },
-        hasText: _query.isNotEmpty,
+        onTap: _loading ? () {} : _openPicker,
       ),
     );
+  }
+
+  /// Open the shared employee picker (search + badges + total count) and, on
+  /// selection, go straight to that employee's profile.
+  Future<void> _openPicker() async {
+    final picked = await pickEmployee(context, _all);
+    if (picked == null || !mounted) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => EmployeeDetailPage(
+        employeeId: picked.id,
+        fallbackName: picked.name,
+      ),
+    ));
   }
 
   Widget _filters() {

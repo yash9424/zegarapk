@@ -19,10 +19,15 @@ class EmployeeDetailPage extends StatefulWidget {
     super.key,
     required this.employeeId,
     this.fallbackName = '',
+    this.initialTab = 0,
   });
 
   final int employeeId;
   final String fallbackName;
+
+  /// Which tab to open on first show: 0 Personal, 1 Payroll(Salary),
+  /// 2 Leaves, 3 Advance, 4 Deductions(Loan), 5 Attendance, 6 Feedback.
+  final int initialTab;
 
   @override
   State<EmployeeDetailPage> createState() => _EmployeeDetailPageState();
@@ -31,7 +36,7 @@ class EmployeeDetailPage extends StatefulWidget {
 class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
   bool _loading = true;
   String? _error;
-  int _tab = 0;
+  late int _tab = widget.initialTab;
 
   EmployeeDetail? _emp;
   List<AttendanceHistoryDay> _history = const [];
@@ -264,7 +269,7 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     (Icons.receipt_long_outlined, 'Payroll'),
     (Icons.event_busy_outlined, 'Leaves'),
     (Icons.payments_outlined, 'Advance'),
-    (Icons.remove_circle_outline, 'Deductions'),
+    (Icons.account_balance_rounded, 'Loan'),
     (Icons.access_time, 'Attendance'),
     (Icons.rate_review_outlined, 'Feedback'),
   ];
@@ -520,19 +525,19 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     if (_deductions.isEmpty) {
       return [
         _tableCard(
-          header: 'DEDUCTIONS',
+          header: 'LOAN / DEDUCTIONS',
           columns: const ['TYPE', 'AMOUNT', 'DATE'],
           flex: const [4, 4, 3],
           action: addBtn,
           rows: const [],
         ),
         const SizedBox(height: 12),
-        _emptyState('No deductions found.'),
+        _emptyState('No loan / deduction records found.'),
       ];
     }
     return [
       _tableCard(
-        header: 'DEDUCTIONS',
+        header: 'LOAN / DEDUCTIONS',
         columns: const ['TYPE', 'AMOUNT', 'DATE'],
         flex: const [4, 4, 3],
         action: addBtn,

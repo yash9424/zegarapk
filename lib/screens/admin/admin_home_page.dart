@@ -7,6 +7,7 @@ import '../../widgets/user_avatar.dart';
 import '../../widgets/zegar_logo.dart';
 import 'employee_directory_page.dart';
 import 'leave_requests_page.dart';
+import 'select_employee_page.dart';
 
 class AdminHomePage extends StatelessWidget {
   const AdminHomePage({super.key, required this.user});
@@ -74,10 +75,13 @@ class AdminHomePage extends StatelessWidget {
           MaterialPageRoute<void>(builder: (_) => const EmployeeDirectoryPage()))),
       (Icons.calendar_month_rounded, 'Leaves', () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const LeaveRequestsPage()))),
-      (Icons.account_balance_rounded, 'Loan', () => _comingSoon(context)),
-      (Icons.account_balance_wallet_rounded, 'Advance', () => _comingSoon(context)),
+      (Icons.account_balance_rounded, 'Loan', () => _openSection(context,
+          'Loan', "Pick an employee to view their loan / deductions.", 4)),
+      (Icons.account_balance_wallet_rounded, 'Advance', () => _openSection(
+          context, 'Advance', "Pick an employee to view their advances.", 3)),
       (Icons.fingerprint_rounded, 'Attendance', () => adminTab.value = 2),
-      (Icons.payments_rounded, 'Salary', () => _comingSoon(context)),
+      (Icons.payments_rounded, 'Salary', () => _openSection(
+          context, 'Salary', "Pick an employee to view their payroll.", 1)),
     ];
     return Column(
       children: [
@@ -157,13 +161,15 @@ class AdminHomePage extends StatelessWidget {
     );
   }
 
-  void _comingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(
-        content: Text('Coming soon'),
-        behavior: SnackBarBehavior.floating,
-      ));
+  void _openSection(
+      BuildContext context, String title, String subtitle, int tabIndex) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => SelectEmployeePage(
+        title: title,
+        subtitle: subtitle,
+        tabIndex: tabIndex,
+      ),
+    ));
   }
 
 }
