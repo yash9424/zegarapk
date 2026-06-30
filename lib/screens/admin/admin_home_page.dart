@@ -21,10 +21,17 @@ class AdminHomePage extends StatefulWidget {
   State<AdminHomePage> createState() => _AdminHomePageState();
 }
 
-class _AdminHomePageState extends State<AdminHomePage> {
+class _AdminHomePageState extends State<AdminHomePage>
+    with SingleTickerProviderStateMixin {
   // Live counts shown in the stat row.
   int? _employees;
   int? _onLeave;
+
+  // Drives the staggered entrance of the menu list.
+  late final AnimationController _intro = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
 
   static const _weekdays = [
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
@@ -47,6 +54,13 @@ class _AdminHomePageState extends State<AdminHomePage> {
   void initState() {
     super.initState();
     _load();
+    _intro.forward();
+  }
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -88,7 +102,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                 const SizedBox(height: 20),
                 _statsRow(),
                 const SizedBox(height: 22),
-                _menuGrid(context),
+                _menuList(context),
                 const SizedBox(height: 22),
                 _welcomeBanner(context),
               ],
@@ -274,7 +288,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
   // ---- Action cards --------------------------------------------------------
 
-  Widget _menuGrid(BuildContext context) {
+  Widget _menuList(BuildContext context) {
     final items = <(IconData, Color, String, String, VoidCallback)>[
       (Icons.groups_2_rounded, _red, 'Employees', 'Manage employee information',
           () => Navigator.of(context).push(MaterialPageRoute<void>(
@@ -300,38 +314,46 @@ class _AdminHomePageState extends State<AdminHomePage> {
     ];
     return Column(
       children: [
-        for (var i = 0; i < items.length; i += 2) ...[
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: _actionCard(items[i])),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: i + 1 < items.length
-                      ? _actionCard(items[i + 1])
-                      : const SizedBox(),
-                ),
-              ],
-            ),
-          ),
-          if (i + 2 < items.length) const SizedBox(height: 14),
-        ], // keep equal heights so paired cards line up
+        for (var i = 0; i < items.length; i++) ...[
+          _introWrap(i, items.length, _listItem(items[i])),
+          if (i != items.length - 1) const SizedBox(height: 12),
+        ],
       ],
     );
   }
 
-  Widget _actionCard((IconData, Color, String, String, VoidCallback) item) {
+  /// Staggered slide-up + fade-in for menu row [i] of [total].
+  Widget _introWrap(int i, int total, Widget child) {
+    final start = (i / total) * 0.55;
+    final anim = CurvedAnimation(
+      parent: _intro,
+      curve: Interval(start, (start + 0.45).clamp(0.0, 1.0),
+          curve: Curves.easeOutCubic),
+    );
+    return AnimatedBuilder(
+      animation: anim,
+      builder: (_, c) => Opacity(
+        opacity: anim.value,
+        child: Transform.translate(
+          offset: Offset(0, (1 - anim.value) * 26),
+          child: c,
+        ),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _listItem((IconData, Color, String, String, VoidCallback) item) {
     final accent = item.$2;
     return Material(
       color: AppColors.surface,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         onTap: item.$5,
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -340,59 +362,91 @@ class _AdminHomePageState extends State<AdminHomePage> {
               ),
             ],
           ),
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Small square icon box, pinned to the top-left.
-              Align(
-                alignment: Alignment.topCenter,
-                child: Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Colour accent strip down the left edge.
+                  Container(width: 5, color: accent),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+                      child: Row(
+                        children: [
+                          _iconTile(accent, item.$1),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  item.$3,
+                                  style: const TextStyle(
+                                    fontSize: 15.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  item.$4,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    height: 1.3,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          _arrowChip(accent),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: Icon(item.$1, color: accent, size: 24),
-                ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.$3, // Title case, as in the design
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.$4,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        height: 1.3,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Spacer(),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Icon(Icons.arrow_forward_rounded,
-                          color: accent, size: 20),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _iconTile(Color accent, IconData icon) {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accent.withValues(alpha: 0.20),
+            accent.withValues(alpha: 0.10),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Icon(icon, color: accent, size: 25),
+    );
+  }
+
+  Widget _arrowChip(Color accent) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.10),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(Icons.arrow_forward_rounded, color: accent, size: 18),
     );
   }
 
