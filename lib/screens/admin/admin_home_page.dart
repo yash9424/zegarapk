@@ -7,6 +7,7 @@ import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/app_header.dart';
 import 'employee_directory_page.dart';
 import 'leave_requests_page.dart';
+import 'salary_page.dart';
 import 'select_employee_page.dart';
 
 /// Admin dashboard home — greeting + date, quick stats, coloured action cards
@@ -294,8 +295,8 @@ class _AdminHomePageState extends State<AdminHomePage> {
           'Track and manage attendance', () => adminTab.value = 2),
       (Icons.description_rounded, _violet, 'Salary',
           'Manage salary and payslips',
-          () => _openSection(
-              context, 'Salary', "Pick an employee to view their payroll.", 1)),
+          () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => const SalaryPage()))),
     ];
     return Column(
       children: [

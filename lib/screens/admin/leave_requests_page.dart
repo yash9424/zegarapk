@@ -48,11 +48,13 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
     }
   }
 
-  static const _chips = <(String, LeaveStatus?)>[
-    ('All Requests', null),
-    ('Pending', LeaveStatus.pending),
-    ('Approved', LeaveStatus.approved),
-    ('Rejected', LeaveStatus.rejected),
+  static const _green = Color(0xFF2BB673);
+  static const _orange = Color(0xFFE8923B);
+
+  static const _chips = <(String, LeaveStatus?, IconData, Color)>[
+    ('All Requests', null, Icons.description_rounded, AppColors.primary),
+    ('Pending', LeaveStatus.pending, Icons.access_time_rounded, _orange),
+    ('Approved', LeaveStatus.approved, Icons.check_circle_rounded, _green),
   ];
 
   List<LeaveRequest> get _filtered => _items
@@ -253,34 +255,52 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
 
   Widget _filterChips() {
     return SizedBox(
-      height: 40,
+      height: 46,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: _chips.length,
         separatorBuilder: (context, index) => const SizedBox(width: 10),
         itemBuilder: (context, i) {
-          final (label, status) = _chips[i];
+          final (label, status, icon, accent) = _chips[i];
           final selected = _filter == status;
           return GestureDetector(
             onTap: () => setState(() => _filter = status),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: selected ? AppColors.primary : AppColors.surface,
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: selected ? AppColors.primary : AppColors.fieldBorder,
                 ),
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.30),
+                          blurRadius: 12,
+                          offset: const Offset(0, 5),
+                        ),
+                      ]
+                    : null,
               ),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : AppColors.textSecondary,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon,
+                      size: 17,
+                      color: selected ? Colors.white : accent),
+                  const SizedBox(width: 7),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: selected ? Colors.white : AppColors.textPrimary,
+                    ),
+                  ),
+                ],
               ),
             ),
           );
@@ -596,9 +616,9 @@ class _LeaveCardState extends State<_LeaveCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _header(r, status),
+                      const SizedBox(height: 12),
+                      _idLine(r),
                       if (_expanded) ...[
-                        const SizedBox(height: 14),
-                        _idLine(r),
                         const SizedBox(height: 14),
                         _dateDurationBox(r),
                         const SizedBox(height: 14),
@@ -609,7 +629,7 @@ class _LeaveCardState extends State<_LeaveCard> {
                           _reasonBlock(r),
                         const SizedBox(height: 14),
                         const Divider(height: 1, color: AppColors.divider),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 14),
                         _footer(r),
                       ],
                     ],
@@ -623,42 +643,101 @@ class _LeaveCardState extends State<_LeaveCard> {
     );
   }
 
+  String _initials(String name) {
+    final p = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (p.isEmpty) return '?';
+    if (p.length == 1) return p.first.substring(0, 1).toUpperCase();
+    return (p.first.substring(0, 1) + p.last.substring(0, 1)).toUpperCase();
+  }
+
+  Widget _avatar(_StatusStyle status) {
+    return Container(
+      width: 50,
+      height: 50,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: status.color.withValues(alpha: 0.14),
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        _initials(widget.request.name),
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          color: status.color,
+        ),
+      ),
+    );
+  }
+
   Widget _header(LeaveRequest r, _StatusStyle status) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _avatar(status),
+        const SizedBox(width: 12),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                r.name,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  r.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                r.role,
-                style:
-                    TextStyle(fontSize: 13, color: AppColors.textSecondary),
-              ),
-            ],
+                const SizedBox(height: 3),
+                Text(
+                  r.role.isEmpty ? 'Default Designation' : r.role,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 13.5, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 8),
         _statusBadge(status),
-        const SizedBox(width: 6),
-        GestureDetector(
-          onTap: () => setState(() => _expanded = !_expanded),
-          child: Icon(
-            _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-            color: AppColors.textMuted,
-          ),
-        ),
+        const SizedBox(width: 2),
+        _trailingControl(r),
       ],
+    );
+  }
+
+  Widget _trailingControl(LeaveRequest r) {
+    if (r.status == LeaveStatus.pending) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _showActions(r),
+        child: const Padding(
+          padding: EdgeInsets.all(4),
+          child: Icon(Icons.more_vert, color: AppColors.textMuted),
+        ),
+      );
+    }
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(
+          _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+          color: AppColors.textMuted,
+        ),
+      ),
     );
   }
 
@@ -693,25 +772,59 @@ class _LeaveCardState extends State<_LeaveCard> {
   }
 
   Widget _idLine(LeaveRequest r) {
-    return Text(
-      '${r.department} • ID: ${r.employeeId}',
-      style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+    return Row(
+      children: [
+        const Icon(Icons.apartment_rounded,
+            size: 15, color: AppColors.textMuted),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            r.department.isEmpty ? '—' : r.department,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary),
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Text('•', style: TextStyle(color: AppColors.textMuted)),
+        const SizedBox(width: 8),
+        const Icon(Icons.badge_outlined,
+            size: 15, color: AppColors.textMuted),
+        const SizedBox(width: 6),
+        Text(
+          'ID: ${r.employeeId}',
+          style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary),
+        ),
+      ],
     );
   }
 
   Widget _dateDurationBox(LeaveRequest r) {
-    Widget col(String label, String value) => Expanded(
+    Widget col(IconData icon, String label, String value) => Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 12, color: AppColors.textSecondary)),
-              const SizedBox(height: 4),
-              Text(value,
+              Row(
+                children: [
+                  Icon(icon, size: 15, color: AppColors.textSecondary),
+                  const SizedBox(width: 6),
+                  Text(label,
+                      style: TextStyle(
+                          fontSize: 12.5, color: AppColors.textSecondary)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(value.isEmpty ? '—' : value,
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    height: 1.25,
                     color: AppColors.textPrimary,
                   )),
             ],
@@ -719,16 +832,17 @@ class _LeaveCardState extends State<_LeaveCard> {
         );
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.fieldFill,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          col('Date Range', r.dateRange),
+          col(Icons.calendar_today_rounded, 'Date Range', r.dateRange),
           const SizedBox(width: 12),
-          col('Duration', r.duration),
+          col(Icons.access_time_rounded, 'Duration', r.duration),
         ],
       ),
     );
@@ -738,13 +852,21 @@ class _LeaveCardState extends State<_LeaveCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Reason',
-            style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-        const SizedBox(height: 6),
+        Row(
+          children: [
+            const Icon(Icons.chat_bubble_outline_rounded,
+                size: 15, color: AppColors.textSecondary),
+            const SizedBox(width: 6),
+            Text('Reason',
+                style:
+                    TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          ],
+        ),
+        const SizedBox(height: 8),
         Text(
-          '"${r.reason}"',
+          r.reason.isEmpty ? '—' : '"${r.reason}"',
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: 14.5,
             fontStyle: FontStyle.italic,
             height: 1.4,
             color: AppColors.textPrimary,
@@ -787,47 +909,47 @@ class _LeaveCardState extends State<_LeaveCard> {
   }
 
   Widget _footer(LeaveRequest r) {
+    final pending = r.status == LeaveStatus.pending;
     return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Expanded(
-          child: Text(
-            r.footerNote,
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-          ),
-        ),
-        if (r.status == LeaveStatus.pending) ...[
-          _smallButton('Edit', AppColors.fieldFill, AppColors.textPrimary,
-              () => _openEdit(r)),
-          const SizedBox(width: 8),
-          _smallButton('Review', AppColors.softRedTint, AppColors.primary,
-              () => _showActions(r)),
-        ] else if (r.status == LeaveStatus.approved)
-          GestureDetector(
-            onTap: () => _showActions(r),
-            child: const Icon(Icons.more_vert, size: 20, color: AppColors.textMuted),
-          )
+        _smallButton('Edit', Icons.edit_outlined, AppColors.fieldFill,
+            AppColors.textPrimary, () => _openEdit(r)),
+        const SizedBox(width: 10),
+        if (pending)
+          _smallButton('Review', Icons.visibility_outlined,
+              AppColors.softRedTint, AppColors.primary, () => _showActions(r))
         else
-          const Icon(Icons.history, size: 20, color: AppColors.textMuted),
+          _smallButton('Delete', Icons.delete_outline, AppColors.softRedTint,
+              AppColors.primary, () => _confirmDelete(r)),
       ],
     );
   }
 
-  Widget _smallButton(String label, Color bg, Color fg, VoidCallback onTap) {
+  Widget _smallButton(
+      String label, IconData icon, Color bg, Color fg, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: fg,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: fg),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: fg,
+              ),
+            ),
+          ],
         ),
       ),
     );

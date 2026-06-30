@@ -8,7 +8,6 @@ import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/employee_picker_sheet.dart';
 import '../../widgets/search_field.dart';
-import '../../widgets/user_avatar.dart';
 import 'employee_detail_page.dart';
 
 /// One employee's attendance for the selected day. Built by merging the full
@@ -417,45 +416,74 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
     return Row(
       children: [
         Expanded(
-            child: _statCard('TOTAL PRESENT', '$present', AppColors.primary)),
-        const SizedBox(width: 10),
+          child: _statCard(Icons.groups_2_rounded, 'Total Present', '$present',
+              AttColors.green),
+        ),
+        const SizedBox(width: 12),
         Expanded(
-            child: _statCard('TOTAL IN', '$inCount', const Color(0xFF2BB673))),
-        const SizedBox(width: 10),
+          child: _statCard(
+              Icons.login_rounded, 'Total In', '$inCount', AttColors.blue),
+        ),
+        const SizedBox(width: 12),
         Expanded(
-            child:
-                _statCard('TOTAL OUT', '$outCount', const Color(0xFFB8860B))),
+          child: _statCard(
+              Icons.logout_rounded, 'Total Out', '$outCount', AttColors.orange),
+        ),
       ],
     );
   }
 
-  Widget _statCard(String label, String value, Color valueColor) {
+  Widget _statCard(IconData icon, String label, String value, Color accent) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.fieldBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.6,
-              color: AppColors.textSecondary,
-            ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
           ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: valueColor,
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, color: accent, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: accent,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -464,17 +492,41 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
   }
 }
 
+/// The exact palette from the attendance design spec.
+class AttColors {
+  AttColors._();
+  static const Color green = Color(0xFF0B8941); // Present / IN / Approved
+  static const Color blue = Color(0xFF3B8EF6); // Total In
+  static const Color orange = Color(0xFFF97316); // Total Out / Pending
+  static const Color pink = Color(0xFFFFE0E2); // avatar tint
+  static const Color slate = Color(0xFF64748B); // muted text
+  static const Color ink = Color(0xFF0F172A); // strong text
+  static const Color cloud = Color(0xFFF1F5F9); // chip background
+}
+
 class _AttCard extends StatelessWidget {
   const _AttCard({required this.row});
   final _AttRow row;
 
+  /// "John M Wick" → "JW" (first + last word initials).
+  String get _initials {
+    final parts =
+        row.name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+        .toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final inTime = to12Hour(row.dutyIn);
+    final outTime = to12Hour(row.dutyOut);
     return Material(
       color: AppColors.surface,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => EmployeeDetailPage(
@@ -485,8 +537,8 @@ class _AttCard extends StatelessWidget {
         ),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.fieldBorder),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFEEF1F6)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -495,12 +547,13 @@ class _AttCard extends StatelessWidget {
               ),
             ],
           ),
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Column(
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  UserAvatar(name: row.name, radius: 22),
+                  _avatar(),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -508,21 +561,23 @@ class _AttCard extends StatelessWidget {
                       children: [
                         Text(
                           row.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: AttColors.ink,
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Row(
                           children: [
-                            _badge(Icons.badge_outlined, 'ID ${row.customId}'),
+                            _badge(Icons.badge_outlined, 'ID: ${row.customId}'),
                             if (row.departmentName.isNotEmpty) ...[
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 8),
                               Flexible(
-                                child: _badge(
-                                    Icons.apartment, row.departmentName,
+                                child: _badge(Icons.apartment_rounded,
+                                    row.departmentName,
                                     muted: true),
                               ),
                             ],
@@ -531,16 +586,17 @@ class _AttCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  _statusBadge(),
+                  const SizedBox(width: 8),
+                  _statusPill(),
                 ],
               ),
-              const SizedBox(height: 12),
-              const Divider(height: 1, color: AppColors.divider),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
+              const Divider(height: 1, color: Color(0xFFEEF1F6)),
+              const SizedBox(height: 14),
               Row(
                 children: [
-                  _timeCol('In Time', to12Hour(row.dutyIn)),
-                  _timeCol('Out Time', to12Hour(row.dutyOut)),
+                  _timeCol('In Time', inTime, isIn: true),
+                  _timeCol('Out Time', outTime, isIn: false),
                 ],
               ),
             ],
@@ -550,18 +606,38 @@ class _AttCard extends StatelessWidget {
     );
   }
 
-  Widget _badge(IconData icon, String text, {bool muted = false}) {
-    final color = muted ? AppColors.textSecondary : AppColors.primary;
-    final bg = muted ? const Color(0xFFEDEFF4) : AppColors.softRedTint;
+  Widget _avatar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      width: 48,
+      height: 48,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AttColors.pink,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        _initials,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          color: AppColors.primary,
+        ),
+      ),
+    );
+  }
+
+  Widget _badge(IconData icon, String text, {bool muted = false}) {
+    final color = muted ? AttColors.slate : AppColors.primary;
+    final bg = muted ? AttColors.cloud : AppColors.softRedTint;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration:
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
+          const SizedBox(width: 5),
           Flexible(
             child: Text(
               text,
@@ -569,7 +645,7 @@ class _AttCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11.5,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: color,
               ),
             ),
@@ -579,56 +655,66 @@ class _AttCard extends StatelessWidget {
     );
   }
 
-  Widget _statusBadge() {
+  Widget _statusPill() {
     final Color color;
-    final Color bg;
     final String label;
     if (!row.present) {
-      color = const Color(0xFFB23A48);
-      bg = const Color(0xFFFBE3E6);
+      color = AttColors.slate;
       label = 'ABSENT';
     } else if (row.isIn) {
-      color = const Color(0xFF2BB673);
-      bg = const Color(0xFFE7F7EF);
+      color = AttColors.green;
       label = 'IN';
     } else {
-      color = const Color(0xFFB8860B);
-      bg = const Color(0xFFFBF3D9);
+      color = AttColors.orange;
       label = 'OUT';
     }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.3,
           color: color,
         ),
       ),
     );
   }
 
-  Widget _timeCol(String label, String value) {
+  Widget _timeCol(String label, String value, {required bool isIn}) {
+    final has = value.isNotEmpty;
+    // In time reads green, Out time reads orange; both fade to slate when the
+    // punch hasn't happened yet (shows "--:--").
+    final accent = isIn ? AttColors.green : AttColors.orange;
+    final shown = has ? accent : AttColors.slate;
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-          const SizedBox(height: 4),
-          Text(
-            value.isEmpty ? '—' : value,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AttColors.slate)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(Icons.access_time_rounded, size: 16, color: shown),
+              const SizedBox(width: 6),
+              Text(
+                has ? value : '--:--',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: shown,
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -145,6 +145,23 @@ class ZedgiftApi {
 
   // ---- Payroll / Advance / Deductions / Leaves --------------------------
 
+  /// The payroll list for a month (`GET /salary?month=&year=`). Each row
+  /// carries the employee, amounts and paid/approved flags the Salary screen
+  /// shows. Defaults to the current month/year when not given.
+  Future<List<SalaryListItem>> salaries({int? month, int? year}) async {
+    final data = await _c.get('salary', query: {
+      'month': ?month,
+      'year': ?year,
+    });
+    return _list(data).map(SalaryListItem.fromJson).toList();
+  }
+
+  /// One salary row's full detail (`GET /salary/{id}`).
+  Future<SalaryListItem> salaryDetail(int id) async {
+    final data = await _c.get('salary/$id');
+    return SalaryListItem.fromJson((data as Map).cast<String, dynamic>());
+  }
+
   /// One month's salary for an employee (`GET /salary/by-employee`).
   /// Returns null when no salary has been generated for that month.
   Future<SalaryRecord?> salaryForMonth(

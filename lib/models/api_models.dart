@@ -36,6 +36,17 @@ String _trimNum(dynamic v) {
   return d == d.roundToDouble() ? d.toInt().toString() : d.toString();
 }
 
+/// 20160 → "20,160" (thousands grouping for a plain integer).
+String _intGroup(int v) {
+  final s = v.abs().toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+    buf.write(s[i]);
+  }
+  return '${v < 0 ? '-' : ''}$buf';
+}
+
 /// A row from `GET /employees`.
 class EmployeeListItem {
   EmployeeListItem({
@@ -306,6 +317,103 @@ class SalaryRecord {
         totalDays: _trimNum(j['total_days']),
         paid: _int(j['paid']) == 1,
       );
+}
+
+/// A row from `GET /salary?month=&year=` (the payroll list). Carries both the
+/// pre-formatted ₹ strings the card shows and a few raw doubles used for the
+/// detail breakdown. Reads the nested `employee` block for name / id / dept.
+class SalaryListItem {
+  SalaryListItem({
+    required this.id,
+    required this.month,
+    required this.year,
+    required this.employeeId,
+    required this.name,
+    required this.customId,
+    required this.departmentName,
+    required this.designationName,
+    required this.typeName,
+    required this.fixSalary,
+    required this.attendanceMinutes,
+    required this.overtimeMinutes,
+    required this.earnings,
+    required this.deductions,
+    required this.grossSalary,
+    required this.companyContribution,
+    required this.netPayable,
+    required this.paid,
+    required this.approved,
+  });
+
+  final int id;
+  final int month;
+  final int year;
+  final int employeeId;
+  final String name;
+  final int customId;
+  final String departmentName;
+  final String designationName;
+  final String typeName;
+  final String fixSalary; // ₹
+  final int attendanceMinutes; // total worked minutes
+  final int overtimeMinutes; // OT minutes
+  final String earnings; // ₹ (gross before deductions)
+  final String deductions; // ₹
+  final String grossSalary; // ₹
+  final String companyContribution; // ₹
+  final String netPayable; // ₹
+  final bool paid;
+  final bool approved;
+
+  /// "ZG-2045" style code from the custom employee id.
+  String get code => 'ZG-$customId';
+
+  String get attendanceLabel => '${_intGroup(attendanceMinutes)} Min';
+  String get overtimeLabel => '${_intGroup(overtimeMinutes)} Min';
+
+  factory SalaryListItem.fromJson(Map<String, dynamic> j) {
+    final emp = (j['employee'] as Map?)?.cast<String, dynamic>();
+    final dept = (emp?['department'] as Map?)?.cast<String, dynamic>();
+    final desig = (emp?['designation'] as Map?)?.cast<String, dynamic>();
+    final type = (emp?['employeetype'] as Map?)?.cast<String, dynamic>();
+
+    final gross = _dbl(j['gross_salary']);
+    final deduction = _dbl(j['total_deduction']);
+    final company = _dbl(j['ctc_contribution']) != 0
+        ? _dbl(j['ctc_contribution'])
+        : _dbl(j['epf_contribution']);
+    final salaryAmount = _dbl(j['salary_amount']);
+    final earnings = salaryAmount != 0 ? salaryAmount : gross;
+
+    // Prefer the real net (bank + cash); fall back to the design's arithmetic
+    // (earnings − deductions + company contribution) when those are blank.
+    final netReal = _dbl(j['net_salary_bank']) + _dbl(j['net_salary_cash']);
+    final net = netReal != 0 ? netReal : (earnings - deduction + company);
+
+    return SalaryListItem(
+      id: _int(j['id']),
+      month: _int(j['month']),
+      year: _int(j['year']),
+      employeeId: _int(j['employee_id']),
+      name: emp == null ? '' : _str(emp['name']).trim(),
+      customId: emp == null
+          ? _int(j['employee_id'])
+          : _int(emp['custom_employee_id']),
+      departmentName: dept == null ? '' : _str(dept['name']).trim(),
+      designationName: desig == null ? '' : _str(desig['name']).trim(),
+      typeName: type == null ? '' : _str(type['name']).trim(),
+      fixSalary: _money(j['fix_salary']),
+      attendanceMinutes: (_dbl(j['total_hrs']) * 60).round(),
+      overtimeMinutes: (_dbl(j['total_ot_hrs']) * 60).round(),
+      earnings: _money(earnings),
+      deductions: _money(deduction),
+      grossSalary: _money(gross != 0 ? gross : earnings),
+      companyContribution: _money(company),
+      netPayable: _money(net),
+      paid: _int(j['paid']) == 1,
+      approved: _int(j['approved']) == 1,
+    );
+  }
 }
 
 /// A salary advance from `GET /advances`. Carries the raw amount/month/year
