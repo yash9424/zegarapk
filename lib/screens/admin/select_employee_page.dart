@@ -688,13 +688,13 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
                     color: AppColors.softRedTint,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add, size: 16, color: AppColors.primary),
-                      SizedBox(width: 4),
-                      Text('Add',
-                          style: TextStyle(
+                      const Icon(Icons.add, size: 16, color: AppColors.primary),
+                      const SizedBox(width: 4),
+                      Text('Add ${widget.title}',
+                          style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: AppColors.primary,
@@ -720,6 +720,13 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
     );
   }
 
+  /// Full-month date range, e.g. "01 Jun – 30 Jun, 2026".
+  String _monthRange(int m, int y) {
+    final last = DateTime(y, m + 1, 0).day;
+    final mm = _mName(m);
+    return '01 $mm – $last $mm, $y';
+  }
+
   List<Widget> _rows() {
     switch (_section) {
       case _Section.advance:
@@ -727,8 +734,9 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
         return [
           for (final a in _adv)
             _recordCard(
+              icon: Icons.event_rounded,
               title: '${_mName(a.month)} ${a.year}',
-              subtitle: a.remark,
+              subtitle: _monthRange(a.month, a.year),
               amount: a.amount,
               pill: a.paid ? 'Paid' : 'Pending',
               pillOk: a.paid,
@@ -740,12 +748,12 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
         return [
           for (final d in _ded)
             _recordCard(
+              icon: Icons.account_balance_rounded,
               title: d.typeName.isEmpty ? 'Deduction' : d.typeName,
-              subtitle: d.description,
+              subtitle: d.description.isNotEmpty
+                  ? d.description
+                  : _fmtDateTime(d.date),
               amount: d.amount,
-              footer: _fmtDateTime(d.date).isEmpty
-                  ? null
-                  : 'Created: ${_fmtDateTime(d.date)}',
               onTap: () => _deductionActions(d),
             ),
         ];
@@ -754,6 +762,7 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
         return [
           for (final s in _sal)
             _recordCard(
+              icon: Icons.receipt_long_rounded,
               title: '${_mName(s.month)} ${s.year}',
               subtitle: 'Base ${s.fixSalary}',
               amount: s.netSalary,
@@ -763,30 +772,41 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
   }
 
   Widget _recordCard({
+    required IconData icon,
     required String title,
     required String subtitle,
     required String amount,
     String? pill,
     bool pillOk = false,
-    String? footer,
     VoidCallback? onTap,
   }) {
     final card = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.softRedTint, width: 1.2),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Row(
         children: [
+          // Leading icon box.
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.softRedTint,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.calendar_today_rounded,
+                color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -795,34 +815,23 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
                   title,
                   style: const TextStyle(
                     fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.textPrimary,
                   ),
                 ),
                 if (subtitle.trim().isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 12.5, color: AppColors.textSecondary),
-                  ),
-                ],
-                if (footer != null && footer.trim().isNotEmpty) ...[
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.schedule,
-                          size: 12.5, color: AppColors.textMuted),
-                      const SizedBox(width: 4),
+                      Icon(icon, size: 13, color: AppColors.textMuted),
+                      const SizedBox(width: 5),
                       Flexible(
                         child: Text(
-                          footer,
+                          subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                              fontSize: 11.5, color: AppColors.textMuted),
+                              fontSize: 12, color: AppColors.textSecondary),
                         ),
                       ),
                     ],
@@ -838,7 +847,7 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
               Text(
                 amount,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 15.5,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary,
                 ),
@@ -847,7 +856,7 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
                 const SizedBox(height: 6),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
                     color: pillOk
                         ? const Color(0xFFE7F7EF)
@@ -877,9 +886,9 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
           ? card
           : Material(
               color: Colors.transparent,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               child: InkWell(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
                 onTap: onTap,
                 child: card,
               ),
