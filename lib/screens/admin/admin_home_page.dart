@@ -379,13 +379,15 @@ class _AdminHomePageState extends State<AdminHomePage>
               ),
             ],
           ),
-          padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
+          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
+              // Top row: icon on the left, menu name to its right.
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Tinted rounded-square icon tile.
                   Container(
                     width: 34,
                     height: 34,
@@ -395,28 +397,41 @@ class _AdminHomePageState extends State<AdminHomePage>
                     ),
                     child: Icon(item.$1, color: accent, size: 18),
                   ),
-                  const Spacer(),
-                  Icon(Icons.arrow_forward_rounded, color: accent, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item.$3,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                item.$3,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                item.$4,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  color: AppColors.textSecondary,
-                ),
+              const SizedBox(height: 8),
+              // Subtext below both, with the arrow at the end.
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.$4,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        height: 1.25,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(Icons.arrow_forward_rounded, color: accent, size: 18),
+                ],
               ),
             ],
           ),
