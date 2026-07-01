@@ -416,6 +416,184 @@ class SalaryListItem {
   }
 }
 
+/// Full payroll breakdown from `GET /salary/{id}` — everything the salary
+/// detail (payslip) screen shows: basics, days, earnings, deductions, net and
+/// company contribution. All ₹ fields are pre-formatted; a few raw doubles are
+/// kept where the screen needs to compute or compare.
+class SalaryDetail {
+  SalaryDetail({
+    required this.id,
+    required this.month,
+    required this.year,
+    required this.employeeId,
+    required this.name,
+    required this.customId,
+    required this.departmentName,
+    required this.designationName,
+    required this.typeName,
+    required this.paid,
+    required this.approved,
+    required this.pfActive,
+    required this.fixWageLabel,
+    required this.fixSalary,
+    required this.workingHrs,
+    required this.workingDays,
+    required this.totalMinutes,
+    required this.presentDays,
+    required this.paidHoliday,
+    required this.totalDays,
+    required this.basicSalary,
+    required this.otAmount,
+    required this.otHours,
+    required this.paidHolidayAmount,
+    required this.mealAmount,
+    required this.productionIncentive,
+    required this.grossSalary,
+    required this.pf,
+    required this.pt,
+    required this.advancePayment,
+    required this.loanRecovery,
+    required this.holdSalary,
+    required this.totalDeduction,
+    required this.bankTransfer,
+    required this.cashPayment,
+    required this.netPayable,
+    required this.bonus,
+    required this.epf,
+    required this.ctc,
+  });
+
+  final int id;
+  final int month;
+  final int year;
+  final int employeeId;
+  final String name;
+  final int customId;
+  final String departmentName;
+  final String designationName;
+  final String typeName;
+  final bool paid;
+  final bool approved;
+
+  // Basics
+  final bool pfActive;
+  final String fixWageLabel; // "Standard" / "Variable"
+  final String fixSalary; // ₹
+  final String workingHrs;
+  final String workingDays;
+  final String totalMinutes;
+
+  // Days
+  final String presentDays;
+  final String paidHoliday;
+  final String totalDays;
+
+  // Earnings
+  final String basicSalary; // ₹
+  final String otAmount; // ₹
+  final String otHours;
+  final String paidHolidayAmount; // ₹
+  final String mealAmount; // ₹
+  final String productionIncentive; // ₹
+  final String grossSalary; // ₹
+
+  // Deductions
+  final String pf; // ₹
+  final String pt; // ₹
+  final String advancePayment; // ₹
+  final String loanRecovery; // ₹
+  final String holdSalary; // ₹
+  final String totalDeduction; // ₹
+
+  // Net
+  final String bankTransfer; // ₹
+  final String cashPayment; // ₹
+  final String netPayable; // ₹
+
+  // Company contribution
+  final String bonus; // ₹
+  final String epf; // ₹
+  final String ctc; // ₹
+
+  String get code => 'ID: $customId';
+
+  factory SalaryDetail.fromJson(Map<String, dynamic> j) {
+    final emp = (j['employee'] as Map?)?.cast<String, dynamic>();
+    final dept = (emp?['department'] as Map?)?.cast<String, dynamic>();
+    final desig = (emp?['designation'] as Map?)?.cast<String, dynamic>();
+    final type = (emp?['employeetype'] as Map?)?.cast<String, dynamic>();
+
+    final totalHrs = _dbl(j['total_hrs']);
+    final otHrs = _dbl(j['total_ot_hrs']);
+
+    final basic = _dbl(j['salary_amount']);
+    final ot = _dbl(j['ot_amount']);
+    final meal = _dbl(j['tiffin_amount']);
+    final incentive = _dbl(j['pro_ince_amount']);
+    final grossRaw = _dbl(j['gross_salary']);
+    final gross = grossRaw != 0 ? grossRaw : (basic + ot + meal + incentive);
+    // No dedicated "paid holiday amount" field — it's the remainder that makes
+    // the parts add up to gross.
+    var phAmount = gross - (basic + ot + meal + incentive);
+    if (phAmount < 0) phAmount = 0;
+
+    final pfDed = _dbl(j['pf_deduction']);
+    final epfC = _dbl(j['epf_contribution']);
+
+    final bank = _dbl(j['net_salary_bank']);
+    final cash = _dbl(j['net_salary_cash']);
+    final totalDed = _dbl(j['total_deduction']);
+    final netReal = bank + cash;
+    final net = netReal != 0 ? netReal : (gross - totalDed);
+
+    final salaryType = _str(type?['salary_type']).toLowerCase();
+
+    return SalaryDetail(
+      id: _int(j['id']),
+      month: _int(j['month']),
+      year: _int(j['year']),
+      employeeId: _int(j['employee_id']),
+      name: emp == null ? '' : _str(emp['name']).trim(),
+      customId: emp == null
+          ? _int(j['employee_id'])
+          : _int(emp['custom_employee_id']),
+      departmentName: dept == null ? '' : _str(dept['name']).trim(),
+      designationName: desig == null ? '' : _str(desig['name']).trim(),
+      typeName: type == null ? '' : _str(type['name']).trim(),
+      paid: _int(j['paid']) == 1,
+      approved: _int(j['approved']) == 1,
+      pfActive: pfDed > 0 || epfC > 0,
+      fixWageLabel: salaryType == 'fixed' ? 'Standard' : 'Variable',
+      fixSalary: _money(j['fix_salary']),
+      workingHrs: _trimNum(totalHrs),
+      workingDays: _trimNum(j['month_working_days']),
+      totalMinutes: _intGroup((totalHrs * 60).round()),
+      presentDays: _trimNum(j['present_days']),
+      paidHoliday: _trimNum(j['ph_days']),
+      totalDays: _trimNum(j['total_days']),
+      basicSalary: _money(basic),
+      otAmount: _money(ot),
+      otHours: _trimNum(otHrs),
+      paidHolidayAmount: _money(phAmount),
+      mealAmount: _money(meal),
+      productionIncentive: _money(incentive),
+      grossSalary: _money(gross),
+      pf: _money(pfDed),
+      pt: _money(j['pt_deduction']),
+      advancePayment: _money(j['advance_deduction']),
+      loanRecovery: _money(j['loan_deduction']),
+      holdSalary: _money(j['bond_deduction']),
+      totalDeduction: _money(totalDed),
+      bankTransfer: _money(bank),
+      cashPayment: _money(cash),
+      netPayable: _money(net),
+      bonus: _money(j['bonus_contribution']),
+      epf: _money(epfC),
+      ctc: _money(j['ctc_contribution']),
+    );
+  }
+}
+
 /// A salary advance from `GET /advances`. Carries the raw amount/month/year
 /// too so the edit form can pre-fill them.
 class AdvanceRecord {

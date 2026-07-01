@@ -7,6 +7,7 @@ import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/user_avatar.dart';
+import 'salary_detail_page.dart';
 
 /// Payroll list for a month — searchable, with Month / Year filters and an
 /// expandable card per employee showing attendance, earnings, deductions and
@@ -397,19 +398,14 @@ class _SalaryPageState extends State<SalaryPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header (always visible, tap to expand/collapse).
+          // Header — tap opens the full payslip; the chevron toggles the
+          // inline summary.
           InkWell(
             borderRadius: BorderRadius.vertical(
               top: const Radius.circular(18),
               bottom: Radius.circular(open ? 0 : 18),
             ),
-            onTap: () => setState(() {
-              if (open) {
-                _expanded.remove(s.id);
-              } else {
-                _expanded.add(s.id);
-              }
-            }),
+            onTap: () => _view(s),
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Row(
@@ -463,11 +459,24 @@ class _SalaryPageState extends State<SalaryPage> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  AnimatedRotation(
-                    turns: open ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: const Icon(Icons.keyboard_arrow_down_rounded,
-                        color: AppColors.textSecondary),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() {
+                      if (open) {
+                        _expanded.remove(s.id);
+                      } else {
+                        _expanded.add(s.id);
+                      }
+                    }),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: AnimatedRotation(
+                        turns: open ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: const Icon(Icons.keyboard_arrow_down_rounded,
+                            color: AppColors.textSecondary),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -780,21 +789,15 @@ class _SalaryPageState extends State<SalaryPage> {
   String _firstName(SalaryListItem s) =>
       s.name.isEmpty ? 'Employee' : s.name.split(' ').first;
 
+  /// Open the full salary detail (payslip) page for this employee.
   Future<void> _view(SalaryListItem s) async {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (ctx) => _DetailSheet(
-        item: s,
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => SalaryDetailPage(
+        salaryId: s.id,
+        fallbackName: s.name,
         monthLabel: '${_months[s.month - 1]} ${s.year}',
-        approved: _approved.contains(s.id),
-        held: _held.contains(s.id),
       ),
-    );
+    ));
   }
 
   Widget _empty(String msg) {
@@ -810,150 +813,6 @@ class _SalaryPageState extends State<SalaryPage> {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Bottom sheet shown by "View" — a full breakdown of one salary record.
-class _DetailSheet extends StatelessWidget {
-  const _DetailSheet({
-    required this.item,
-    required this.monthLabel,
-    required this.approved,
-    required this.held,
-  });
-
-  final SalaryListItem item;
-  final String monthLabel;
-  final bool approved;
-  final bool held;
-
-  @override
-  Widget build(BuildContext context) {
-    final status = held
-        ? ('On Hold', AppColors.primary, AppColors.softRedTint)
-        : approved
-            ? ('Approved', const Color(0xFF2BB673), const Color(0xFFE7F7EF))
-            : ('Pending', const Color(0xFFE8923B), const Color(0xFFFCF1E4));
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.fieldBorder,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.name.isEmpty
-                          ? 'Employee #${item.customId}'
-                          : item.name,
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 2),
-                    Text('ID: ${item.code} • $monthLabel',
-                        style: TextStyle(
-                            fontSize: 12.5, color: AppColors.textSecondary)),
-                  ],
-                ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-                decoration: BoxDecoration(
-                  color: status.$3,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(status.$1,
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: status.$2)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _row('Salary Type', item.typeName.isEmpty ? '—' : item.typeName),
-          _row('Base Salary', item.fixSalary),
-          _row('Attendance', item.attendanceLabel),
-          _row('Overtime', item.overtimeLabel),
-          const Divider(height: 26),
-          _row('Earnings', item.earnings),
-          _row('Deductions', item.deductions),
-          _row('Gross Salary', item.grossSalary),
-          _row('Company Contribution', item.companyContribution),
-          const Divider(height: 26),
-          Row(
-            children: [
-              const Text('NET PAYABLE',
-                  style:
-                      TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-              const Spacer(),
-              Text(item.netPayable,
-                  style: const TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primary)),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Close',
-                  style:
-                      TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _row(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Text(label,
-              style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary)),
-          const Spacer(),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary)),
         ],
       ),
     );

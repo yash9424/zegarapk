@@ -162,6 +162,12 @@ class ZedgiftApi {
     return SalaryListItem.fromJson((data as Map).cast<String, dynamic>());
   }
 
+  /// The full payroll breakdown for the payslip screen (`GET /salary/{id}`).
+  Future<SalaryDetail> salaryFull(int id) async {
+    final data = await _c.get('salary/$id');
+    return SalaryDetail.fromJson((data as Map).cast<String, dynamic>());
+  }
+
   /// One month's salary for an employee (`GET /salary/by-employee`).
   /// Returns null when no salary has been generated for that month.
   Future<SalaryRecord?> salaryForMonth(
