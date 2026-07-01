@@ -217,7 +217,7 @@ class _AdminHomePageState extends State<AdminHomePage>
       (Icons.calendar_month_rounded, _purple, _onLeave?.toString() ?? '—',
           'On Leave'),
       (Icons.account_balance_wallet_rounded, _green, '—', 'Advances'),
-      (Icons.payments_rounded, _orange, '—', 'Payroll'),
+      (Icons.payments_rounded, _orange, '—', 'Total Payroll'),
     ];
     return Row(
       children: [
@@ -232,52 +232,58 @@ class _AdminHomePageState extends State<AdminHomePage>
   Widget _statCard((IconData, Color, String, String) s) {
     final accent = s.$2;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Column(
         children: [
+          // Rounded-square tinted icon tile.
           Container(
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(s.$1, color: accent, size: 20),
+            child: Icon(s.$1, color: accent, size: 22),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               s.$3,
               style: const TextStyle(
-                fontSize: 16,
+                fontSize: 20,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
               ),
             ),
           ),
-          const SizedBox(height: 1),
-          Text(
-            s.$4,
-            maxLines: 1,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              s.$4,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondary,
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           SizedBox(
-            height: 16,
+            height: 20,
             width: double.infinity,
             child: CustomPaint(painter: _SparkPainter(accent)),
           ),
