@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/employee_picker_sheet.dart';
+import '../../widgets/search_field.dart';
 import 'employee_detail_page.dart';
 
 enum _Section { salary, advance, loan }
@@ -50,6 +51,10 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
   ];
 
+  // Month / Year filter (same as the Salary page).
+  late int _month;
+  late int _year;
+
   _Section get _section => switch (widget.tabIndex) {
         1 => _Section.salary,
         4 => _Section.loan,
@@ -73,6 +78,9 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _month = now.month;
+    _year = now.year;
     _load();
   }
 
@@ -117,11 +125,11 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
       final api = ZedgiftApi.instance;
       switch (_section) {
         case _Section.advance:
-          _adv = await api.advances(empId);
+          _adv = await api.advances(empId, month: _month, year: _year);
           break;
         case _Section.loan:
           final r = await Future.wait([
-            api.deductions(empId),
+            api.deductions(empId, month: _month, year: _year),
             api.deductionTypes(),
           ]);
           _ded = r[0] as List<DeductionRecord>;
@@ -556,33 +564,12 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
             _appBar(),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
                 children: [
-                  const SizedBox(height: 4),
-                  Center(
-                    child: Text(
-                      widget.title,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Center(
-                    child: Text(
-                      widget.subtitle,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: 14, color: AppColors.textSecondary),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  _label('Select Employee'),
-                  const SizedBox(height: 8),
-                  _employeePicker(),
-                  const SizedBox(height: 22),
+                  _titleRow(),
+                  const SizedBox(height: 16),
+                  _searchBar(),
+                  const SizedBox(height: 20),
                   if (_selected != null) _recordsArea(),
                 ],
               ),
@@ -597,53 +584,149 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
     return const AppHeader(leadingIcon: Icons.arrow_back);
   }
 
-  Widget _label(String text) => Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
+  /// Title (brand red) on the left + Month / Year filter pills on the right —
+  /// same layout as the Salary page.
+  Widget _titleRow() {
+    return Row(
+      children: [
+        Text(
+          widget.title,
+          style: const TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            color: AppColors.primary,
+          ),
         ),
-      );
+        const Spacer(),
+        _filterPill(label: _months[_month - 1], onTap: _pickMonth),
+        const SizedBox(width: 8),
+        _filterPill(label: '$_year', onTap: _pickYear),
+      ],
+    );
+  }
 
-  Widget _employeePicker() {
-    final e = _selected;
-    return InkWell(
+  Widget _filterPill({required String label, required VoidCallback onTap}) {
+    return Material(
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(12),
-      onTap: _loading ? null : _pickEmployee,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
-        decoration: BoxDecoration(
-          color: AppColors.fieldFill,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.fieldBorder),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.fieldBorder),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  )),
+              const SizedBox(width: 4),
+              const Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 18, color: AppColors.textSecondary),
+            ],
+          ),
         ),
-        child: Row(
+      ),
+    );
+  }
+
+  Future<void> _pickMonth() async {
+    final picked = await _pickFromSheet<int>(
+      title: 'Select Month',
+      items: [for (var m = 1; m <= 12; m++) (m, _months[m - 1])],
+      selected: _month,
+    );
+    if (picked != null && picked != _month) {
+      setState(() => _month = picked);
+      if (_selected != null) _loadRecords(_selected!.id);
+    }
+  }
+
+  Future<void> _pickYear() async {
+    final now = DateTime.now();
+    final years = [for (var y = now.year - 4; y <= now.year + 1; y++) y];
+    final picked = await _pickFromSheet<int>(
+      title: 'Select Year',
+      items: [for (final y in years) (y, '$y')],
+      selected: _year,
+    );
+    if (picked != null && picked != _year) {
+      setState(() => _year = picked);
+      if (_selected != null) _loadRecords(_selected!.id);
+    }
+  }
+
+  Future<T?> _pickFromSheet<T>({
+    required String title,
+    required List<(T, String)> items,
+    required T selected,
+  }) {
+    return showModalBottomSheet<T>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.search, size: 20, color: AppColors.textMuted),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                _loading
-                    ? 'Loading employees...'
-                    : _error != null
-                        ? _error!
-                        : e == null
-                            ? 'Choose an employee...'
-                            : e.name, // name only — no ID in the field
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  color:
-                      e == null ? AppColors.textMuted : AppColors.textPrimary,
-                  fontWeight: e == null ? FontWeight.w400 : FontWeight.w600,
-                ),
+            const SizedBox(height: 12),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final it in items)
+                    ListTile(
+                      title: Text(it.$2,
+                          style: TextStyle(
+                            fontWeight: it.$1 == selected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: it.$1 == selected
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
+                          )),
+                      trailing: it.$1 == selected
+                          ? const Icon(Icons.check_rounded,
+                              color: AppColors.primary, size: 20)
+                          : null,
+                      onTap: () => Navigator.pop(ctx, it.$1),
+                    ),
+                ],
               ),
             ),
-            const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
+            const SizedBox(height: 8),
           ],
         ),
       ),
+    );
+  }
+
+  /// Shared search bar (same as the Salary page) — tapping opens the employee
+  /// picker sheet.
+  Widget _searchBar() {
+    final e = _selected;
+    return SearchField(
+      hint: _loading
+          ? 'Loading employees...'
+          : _error != null
+              ? _error!
+              : e == null
+                  ? 'Search employee name or ID...'
+                  : e.name,
+      onTap: _loading ? () {} : _pickEmployee,
     );
   }
 

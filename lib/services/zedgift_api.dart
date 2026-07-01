@@ -201,8 +201,14 @@ class ZedgiftApi {
       _c.getBytes('salary/slip/$salaryId/download');
 
   /// Salary advances for an employee (`GET /advances?employee_id=`).
-  Future<List<AdvanceRecord>> advances(int employeeId) async {
-    final data = await _c.get('advances', query: {'employee_id': employeeId});
+  /// Optional [month]/[year] scope it to a period (server defaults to current).
+  Future<List<AdvanceRecord>> advances(int employeeId,
+      {int? month, int? year}) async {
+    final data = await _c.get('advances', query: {
+      'employee_id': employeeId,
+      'month': ?month,
+      'year': ?year,
+    });
     return _list(data).map(AdvanceRecord.fromJson).toList();
   }
 
@@ -251,9 +257,13 @@ class ZedgiftApi {
 
   /// Deductions (loan / penalty / uniform) for an employee
   /// (`GET /deductions/by-employee?employee_id=`).
-  Future<List<DeductionRecord>> deductions(int employeeId) async {
-    final data = await _c
-        .get('deductions/by-employee', query: {'employee_id': employeeId});
+  Future<List<DeductionRecord>> deductions(int employeeId,
+      {int? month, int? year}) async {
+    final data = await _c.get('deductions/by-employee', query: {
+      'employee_id': employeeId,
+      'month': ?month,
+      'year': ?year,
+    });
     return _list(data).map(DeductionRecord.fromJson).toList();
   }
 
