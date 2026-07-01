@@ -95,15 +95,18 @@ class _AdminHomePageState extends State<AdminHomePage>
             onLeadingTap: () => Scaffold.of(context).openDrawer(),
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
-              children: [
-                _greeting(),
-                const SizedBox(height: 14),
-                _statsRow(),
-                const SizedBox(height: 16),
-                _menuGrid(context),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Column(
+                children: [
+                  _greeting(),
+                  const SizedBox(height: 14),
+                  _statsRow(),
+                  const SizedBox(height: 16),
+                  // Grid fills the remaining vertical space.
+                  Expanded(child: _menuGrid(context)),
+                ],
+              ),
             ),
           ),
         ],
@@ -315,11 +318,11 @@ class _AdminHomePageState extends State<AdminHomePage>
     return Column(
       children: [
         for (var r = 0; r < rowCount; r++) ...[
-          _introWrap(
-            r,
-            rowCount,
-            IntrinsicHeight(
-              child: Row(
+          Expanded(
+            child: _introWrap(
+              r,
+              rowCount,
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(child: _actionCard(items[r * 2])),
@@ -379,25 +382,25 @@ class _AdminHomePageState extends State<AdminHomePage>
               ),
             ],
           ),
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Top row: icon on the left, menu name to its right.
+              // Top: icon on the left, menu name to its right.
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(11),
                     ),
-                    child: Icon(item.$1, color: accent, size: 18),
+                    child: Icon(item.$1, color: accent, size: 20),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 9),
                   Expanded(
                     child: Text(
                       item.$3,
@@ -412,8 +415,7 @@ class _AdminHomePageState extends State<AdminHomePage>
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              // Subtext below both, with the arrow at the end.
+              // Bottom: subtext across the width, arrow at the end.
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -424,7 +426,7 @@ class _AdminHomePageState extends State<AdminHomePage>
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 10.5,
-                        height: 1.25,
+                        height: 1.3,
                         color: AppColors.textSecondary,
                       ),
                     ),
