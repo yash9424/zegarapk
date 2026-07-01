@@ -400,16 +400,23 @@ class _AdminHomePageState extends State<AdminHomePage>
                     ),
                     child: Icon(item.$1, color: accent, size: 24),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 9),
+                  // Auto-shrinks to fit so long names never get cut.
                   Expanded(
-                    child: Text(
-                      item.$3,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          item.$3,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
                       ),
                     ),
                   ),
