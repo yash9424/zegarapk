@@ -274,13 +274,13 @@ class _AdminHomePageState extends State<AdminHomePage>
             ),
             child: Icon(s.$1, color: accent, size: 19),
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 6),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               s.$3,
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
               ),
@@ -293,7 +293,7 @@ class _AdminHomePageState extends State<AdminHomePage>
               s.$4,
               maxLines: 1,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textSecondary,
               ),
@@ -402,7 +402,7 @@ class _AdminHomePageState extends State<AdminHomePage>
           padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Top: icon on the left, menu name to its right.
               Row(
