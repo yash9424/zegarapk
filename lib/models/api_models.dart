@@ -47,6 +47,37 @@ String _intGroup(int v) {
   return '${v < 0 ? '-' : ''}$buf';
 }
 
+/// Company-wide counters from `GET /dashboard/stats`.
+class DashboardStats {
+  DashboardStats({
+    required this.employees,
+    required this.onLeave,
+    required this.advances,
+    required this.payroll,
+  });
+
+  final int employees;
+  final int onLeave;
+  final int advances;
+  final double payroll;
+
+  factory DashboardStats.fromJson(Map<String, dynamic> j) => DashboardStats(
+        employees: _int(j['total_employee_count']),
+        onLeave: _int(j['total_leave_count']),
+        advances: _int(j['total_advance_count']),
+        payroll: _dbl(j['total_salary_amount_sum']),
+      );
+
+  /// Compact Indian-style money for the stat card: ₹0, ₹24.5L, ₹1.2Cr.
+  String get payrollLabel {
+    final v = payroll;
+    if (v >= 10000000) return '₹${(v / 10000000).toStringAsFixed(1)}Cr';
+    if (v >= 100000) return '₹${(v / 100000).toStringAsFixed(1)}L';
+    if (v >= 1000) return '₹${(v / 1000).toStringAsFixed(1)}K';
+    return '₹${v.toStringAsFixed(0)}';
+  }
+}
+
 /// A row from `GET /employees`.
 class EmployeeListItem {
   EmployeeListItem({

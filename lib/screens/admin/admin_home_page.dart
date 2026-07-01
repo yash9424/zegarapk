@@ -23,9 +23,11 @@ class AdminHomePage extends StatefulWidget {
 
 class _AdminHomePageState extends State<AdminHomePage>
     with SingleTickerProviderStateMixin {
-  // Live counts shown in the stat row.
+  // Live counts shown in the stat row (from GET /dashboard/stats).
   int? _employees;
   int? _onLeave;
+  int? _advances;
+  String? _payroll;
 
   // Drives the staggered entrance of the menu list.
   late final AnimationController _intro = AnimationController(
@@ -64,6 +66,20 @@ class _AdminHomePageState extends State<AdminHomePage>
   }
 
   Future<void> _load() async {
+    try {
+      final s = await ZedgiftApi.instance.dashboardStats();
+      if (mounted) {
+        setState(() {
+          _employees = s.employees;
+          _onLeave = s.onLeave;
+          _advances = s.advances;
+          _payroll = s.payrollLabel;
+        });
+      }
+      return;
+    } catch (_) {
+      // Fall back to per-endpoint counts if the dashboard call fails.
+    }
     try {
       final emps = await ZedgiftApi.instance.employees();
       if (mounted) setState(() => _employees = emps.length);
@@ -213,12 +229,13 @@ class _AdminHomePageState extends State<AdminHomePage>
 
   Widget _statsRow() {
     final stats = <(IconData, Color, String, String)>[
-      (Icons.groups_2_rounded, _red, _employees?.toString() ?? '—',
+      (Icons.groups_2_rounded, _red, _employees?.toString() ?? '0',
           'Employees'),
-      (Icons.calendar_month_rounded, _purple, _onLeave?.toString() ?? '—',
+      (Icons.calendar_month_rounded, _purple, _onLeave?.toString() ?? '0',
           'On Leave'),
-      (Icons.account_balance_wallet_rounded, _green, '—', 'Advances'),
-      (Icons.payments_rounded, _orange, '—', 'Total Payroll'),
+      (Icons.account_balance_wallet_rounded, _green, _advances?.toString() ?? '0',
+          'Advances'),
+      (Icons.payments_rounded, _orange, _payroll ?? '₹0', 'Total Payroll'),
     ];
     return Row(
       children: [
@@ -385,20 +402,20 @@ class _AdminHomePageState extends State<AdminHomePage>
           padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               // Top: icon on the left, menu name to its right.
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(13),
+                      borderRadius: BorderRadius.circular(11),
                     ),
-                    child: Icon(item.$1, color: accent, size: 24),
+                    child: Icon(item.$1, color: accent, size: 20),
                   ),
                   const SizedBox(width: 9),
                   // Auto-shrinks to fit so long names never get cut.
@@ -422,7 +439,8 @@ class _AdminHomePageState extends State<AdminHomePage>
                   ),
                 ],
               ),
-              // Bottom: subtext across the width, arrow at the end.
+              const SizedBox(height: 6),
+              // Subtext across the width, arrow at the end.
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [

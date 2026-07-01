@@ -18,6 +18,15 @@ class ZedgiftApi {
     return const [];
   }
 
+  // ---- Dashboard ---------------------------------------------------------
+
+  /// Company-wide counters for the home stat cards (`GET /dashboard/stats`):
+  /// total employees, leaves, advances and the summed salary amount.
+  Future<DashboardStats> dashboardStats() async {
+    final data = await _c.get('dashboard/stats');
+    return DashboardStats.fromJson((data as Map).cast<String, dynamic>());
+  }
+
   // ---- Employees ---------------------------------------------------------
 
   Future<List<EmployeeListItem>> employees() async {
