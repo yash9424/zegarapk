@@ -30,10 +30,15 @@ String _money(dynamic v) {
   return '${neg ? '-' : ''}₹$buf.${parts[1]}';
 }
 
-/// "27.000000" → "27"; "1.5" → "1.5".
+/// "27.000000" → "27"; "339.666667" → "339.67"; "1.5" → "1.5".
+/// Rounds to at most 2 decimals and groups thousands on the integer part.
 String _trimNum(dynamic v) {
   final d = _dbl(v);
-  return d == d.roundToDouble() ? d.toInt().toString() : d.toString();
+  final r = (d * 100).round() / 100;
+  if (r == r.roundToDouble()) return _intGroup(r.toInt());
+  var s = r.toStringAsFixed(2);
+  if (s.endsWith('0')) s = s.substring(0, s.length - 1);
+  return s;
 }
 
 /// 20160 → "20,160" (thousands grouping for a plain integer).

@@ -429,7 +429,7 @@ class _SalaryPageState extends State<SalaryPage> {
                         Text(
                           s.name.isEmpty ? 'Employee #${s.customId}' : s.name,
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 14,
                             fontWeight: FontWeight.w800,
                             color: AppColors.textPrimary,
                           ),
@@ -439,7 +439,7 @@ class _SalaryPageState extends State<SalaryPage> {
                           'ID: ${s.code}'
                           '${s.departmentName.isEmpty ? '' : ' • ${s.departmentName.toUpperCase()}'}',
                           style: TextStyle(
-                            fontSize: 11.5,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.w600,
                             color: AppColors.textSecondary,
                           ),
@@ -449,7 +449,7 @@ class _SalaryPageState extends State<SalaryPage> {
                           Text(
                             s.designationName,
                             style: const TextStyle(
-                              fontSize: 12.5,
+                              fontSize: 11.5,
                               fontWeight: FontWeight.w700,
                               color: AppColors.primary,
                             ),
@@ -517,7 +517,7 @@ class _SalaryPageState extends State<SalaryPage> {
                   child: Text(
                     'Type: ${s.typeName.isEmpty ? '—' : s.typeName}',
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 11.5,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textSecondary,
                     ),
@@ -526,7 +526,7 @@ class _SalaryPageState extends State<SalaryPage> {
                 Text(
                   s.fixSalary,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: AppColors.primary,
                   ),
@@ -571,7 +571,7 @@ class _SalaryPageState extends State<SalaryPage> {
               const Text(
                 'NET PAYABLE',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary,
                 ),
@@ -580,7 +580,7 @@ class _SalaryPageState extends State<SalaryPage> {
               Text(
                 s.netPayable,
                 style: const TextStyle(
-                  fontSize: 17,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
                   color: AppColors.primary,
                 ),
@@ -639,7 +639,7 @@ class _SalaryPageState extends State<SalaryPage> {
           Text(
             label,
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: 10.5,
               fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
@@ -648,7 +648,7 @@ class _SalaryPageState extends State<SalaryPage> {
           Text(
             value,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: FontWeight.w800,
               color: accent ? AppColors.primary : AppColors.textPrimary,
             ),
@@ -663,13 +663,13 @@ class _SalaryPageState extends State<SalaryPage> {
       children: [
         Text(
           label,
-          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
         const Spacer(),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 13.5,
+            fontSize: 12.5,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
           ),

@@ -181,19 +181,19 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
     return Row(
       children: [
         Container(
-          width: 34,
-          height: 34,
+          width: 30,
+          height: 30,
           decoration: BoxDecoration(
             color: accent.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(9),
           ),
-          child: Icon(icon, color: accent, size: 18),
+          child: Icon(icon, color: accent, size: 16),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: Text(title,
               style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w800,
                   color: _C.ink)),
         ),
@@ -213,17 +213,17 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 88,
-                height: 88,
+                width: 68,
+                height: 68,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
                   _initials(d.name.isEmpty ? widget.fallbackName : d.name),
                   style: const TextStyle(
-                      fontSize: 30,
+                      fontSize: 22,
                       fontWeight: FontWeight.w800,
                       color: AppColors.primary),
                 ),
@@ -238,7 +238,7 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
                     Text(
                       d.name.isEmpty ? widget.fallbackName : d.name,
                       style: const TextStyle(
-                          fontSize: 21,
+                          fontSize: 16.5,
                           fontWeight: FontWeight.w800,
                           color: _C.ink),
                     ),
@@ -246,7 +246,7 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
                       const SizedBox(height: 2),
                       Text(d.designationName,
                           style: TextStyle(
-                              fontSize: 13.5, color: AppColors.textSecondary)),
+                              fontSize: 12.5, color: AppColors.textSecondary)),
                     ],
                     const SizedBox(height: 8),
                     Wrap(
@@ -310,7 +310,7 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
         Expanded(
           flex: 3,
           child: SizedBox(
-            height: 48,
+            height: 44,
             child: ElevatedButton.icon(
               onPressed: _approvedLocal
                   ? null
@@ -337,7 +337,7 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
               ),
               label: Text(_approvedLocal ? 'Approved' : 'Approve',
                   style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w700)),
+                      fontSize: 13, fontWeight: FontWeight.w700)),
             ),
           ),
         ),
@@ -364,7 +364,7 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
   Widget _iconOutlineBtn(IconData icon, String label,
       {required VoidCallback onTap, bool active = false}) {
     return SizedBox(
-      height: 48,
+      height: 44,
       child: OutlinedButton(
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
@@ -380,11 +380,11 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 17),
+            Icon(icon, size: 16),
             const SizedBox(width: 5),
             Text(label,
                 style: const TextStyle(
-                    fontSize: 13.5, fontWeight: FontWeight.w700)),
+                    fontSize: 12.5, fontWeight: FontWeight.w700)),
           ],
         ),
       ),
@@ -406,26 +406,12 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
             padding: EdgeInsets.symmetric(vertical: 14),
             child: Divider(height: 1, color: AppColors.divider),
           ),
-          Wrap(
-            spacing: 18,
-            runSpacing: 10,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          Row(
             children: [
-              _labeledChip('PF Status', d.pfActive ? 'Active' : 'Inactive',
+              _labeledChip('PF Status', d.pfActive ? 'Yes' : 'No',
                   d.pfActive ? _C.green : _C.slate),
+              const SizedBox(width: 18),
               _labeledChip('Fix Wage', d.fixWageLabel, _C.blue),
-              _labeledChip(
-                  'Status',
-                  _heldLocal
-                      ? 'On Hold'
-                      : _approvedLocal
-                          ? 'Approved'
-                          : 'Pending',
-                  _heldLocal
-                      ? AppColors.primary
-                      : _approvedLocal
-                          ? _C.green
-                          : AppColors.primary),
             ],
           ),
         ],
@@ -433,8 +419,7 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
     );
   }
 
-  /// Four basics metrics: all in one row when there's room, otherwise a 2×2
-  /// grid so nothing gets squeezed or overflows on a phone.
+  /// Four basics metrics in a clean 2×2 grid so nothing overflows on a phone.
   Widget _basicsMetrics(SalaryDetail d) {
     final metrics = <(IconData, String, String)>[
       (Icons.payments_outlined, 'FIX SALARY', d.fixSalary),
@@ -442,41 +427,26 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
       (Icons.event_available_outlined, 'WORKING DAYS', d.workingDays),
       (Icons.timelapse_outlined, 'TOTAL MINUTES', d.totalMinutes),
     ];
-    return LayoutBuilder(
-      builder: (context, c) {
-        // ~110px per metric is comfortable; below that, drop to 2×2.
-        final oneRow = c.maxWidth >= 440;
-        if (oneRow) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final m in metrics)
-                Expanded(child: _metric(m.$1, m.$2, m.$3)),
-            ],
-          );
-        }
-        return Column(
+    return Column(
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _metric(metrics[0].$1, metrics[0].$2, metrics[0].$3)),
-                const SizedBox(width: 12),
-                Expanded(child: _metric(metrics[1].$1, metrics[1].$2, metrics[1].$3)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _metric(metrics[2].$1, metrics[2].$2, metrics[2].$3)),
-                const SizedBox(width: 12),
-                Expanded(child: _metric(metrics[3].$1, metrics[3].$2, metrics[3].$3)),
-              ],
-            ),
+            Expanded(child: _metric(metrics[0].$1, metrics[0].$2, metrics[0].$3)),
+            const SizedBox(width: 12),
+            Expanded(child: _metric(metrics[1].$1, metrics[1].$2, metrics[1].$3)),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _metric(metrics[2].$1, metrics[2].$2, metrics[2].$3)),
+            const SizedBox(width: 12),
+            Expanded(child: _metric(metrics[3].$1, metrics[3].$2, metrics[3].$3)),
+          ],
+        ),
+      ],
     );
   }
 
@@ -486,28 +456,28 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
       children: [
         Row(
           children: [
-            Icon(icon, size: 15, color: AppColors.textMuted),
-            const SizedBox(width: 6),
+            Icon(icon, size: 14, color: AppColors.textMuted),
+            const SizedBox(width: 5),
             Expanded(
               child: Text(label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      letterSpacing: 0.4,
+                      letterSpacing: 0.3,
                       color: AppColors.textSecondary)),
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 5),
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
           child: Text(value,
               maxLines: 1,
               style: const TextStyle(
-                  fontSize: 17, fontWeight: FontWeight.w800, color: _C.ink)),
+                  fontSize: 15, fontWeight: FontWeight.w800, color: _C.ink)),
         ),
       ],
     );
@@ -579,11 +549,11 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
             children: [
               const Text('Gross Salary',
                   style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w800, color: _C.ink)),
+                      fontSize: 13.5, fontWeight: FontWeight.w800, color: _C.ink)),
               const Spacer(),
               Text(d.grossSalary,
                   style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: _C.green)),
             ],
@@ -635,13 +605,13 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
               children: [
                 const Text('Total Deduction',
                     style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.w800,
                         color: _C.ink)),
                 const Spacer(),
                 Text(d.totalDeduction,
                     style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                         color: AppColors.primary)),
               ],
@@ -663,7 +633,7 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
         children: [
           Text(label,
               style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textSecondary)),
           const Spacer(),
@@ -671,7 +641,7 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
             child: Text(value,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                    fontSize: 13.5,
+                    fontSize: 12.5,
                     fontWeight: FontWeight.w800,
                     color: _C.ink)),
           ),
@@ -685,7 +655,7 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
   Widget _netCard(SalaryDetail d) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
@@ -709,12 +679,12 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
               const Expanded(
                 child: Text('Net Payable Amount',
                     style: TextStyle(
-                        fontSize: 17,
+                        fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: Colors.white)),
               ),
               Icon(Icons.account_balance_wallet_rounded,
-                  color: Colors.white.withValues(alpha: 0.9), size: 24),
+                  color: Colors.white.withValues(alpha: 0.9), size: 22),
             ],
           ),
           const SizedBox(height: 18),
@@ -739,20 +709,25 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
             children: [
               Text(label,
                   style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 10.5,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.6,
                       color: Colors.white.withValues(alpha: 0.85))),
-              const SizedBox(height: 4),
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white)),
+              const SizedBox(height: 3),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(value,
+                    maxLines: 1,
+                    style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white)),
+              ),
             ],
           ),
         ),
-        Icon(icon, color: Colors.white.withValues(alpha: 0.35), size: 34),
+        Icon(icon, color: Colors.white.withValues(alpha: 0.35), size: 28),
       ],
     );
   }
@@ -786,11 +761,11 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
               children: [
                 Text('CTC (Total Cost)',
                     style: TextStyle(
-                        fontSize: 12.5, color: AppColors.textSecondary)),
-                const SizedBox(height: 4),
+                        fontSize: 11.5, color: AppColors.textSecondary)),
+                const SizedBox(height: 3),
                 Text(d.ctc,
                     style: const TextStyle(
-                        fontSize: 20,
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: _C.violet)),
               ],
@@ -812,11 +787,11 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-          const SizedBox(height: 4),
+              style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+          const SizedBox(height: 3),
           Text(value,
               style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w800, color: color)),
+                  fontSize: 14, fontWeight: FontWeight.w800, color: color)),
         ],
       ),
     );
@@ -839,10 +814,10 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
   Widget _quickBtn(IconData icon, String label, VoidCallback onTap) {
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: 48,
       child: OutlinedButton.icon(
         onPressed: onTap,
-        icon: Icon(icon, size: 19, color: _C.ink),
+        icon: Icon(icon, size: 18, color: _C.ink),
         style: OutlinedButton.styleFrom(
           foregroundColor: _C.ink,
           backgroundColor: AppColors.surface,
@@ -851,7 +826,7 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         label: Text(label,
-            style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
       ),
     );
   }
@@ -865,11 +840,11 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
         children: [
           Expanded(
             child: Text(label,
-                style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary)),
+                style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
           ),
           Text(value,
               style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w700, color: _C.ink)),
+                  fontSize: 12.5, fontWeight: FontWeight.w700, color: _C.ink)),
         ],
       ),
     );
@@ -881,13 +856,13 @@ class _SalaryDetailPageState extends State<SalaryDetailPage> {
       children: [
         Text(label,
             style: TextStyle(
-                fontSize: bold ? 15 : 14,
+                fontSize: bold ? 13.5 : 12.5,
                 fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
                 color: bold ? _C.ink : AppColors.textSecondary)),
         const Spacer(),
         Text(value,
             style: TextStyle(
-                fontSize: bold ? 17 : 15,
+                fontSize: bold ? 14.5 : 13,
                 fontWeight: FontWeight.w800,
                 color: valueColor)),
       ],
