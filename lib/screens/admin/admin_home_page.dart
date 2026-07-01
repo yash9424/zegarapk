@@ -392,22 +392,22 @@ class _AdminHomePageState extends State<AdminHomePage>
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
-                    width: 38,
-                    height: 38,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(11),
+                      borderRadius: BorderRadius.circular(13),
                     ),
-                    child: Icon(item.$1, color: accent, size: 20),
+                    child: Icon(item.$1, color: accent, size: 24),
                   ),
-                  const SizedBox(width: 9),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       item.$3,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 13.5,
+                        fontSize: 15.5,
                         fontWeight: FontWeight.w800,
                         color: AppColors.textPrimary,
                       ),
