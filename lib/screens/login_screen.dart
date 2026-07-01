@@ -123,22 +123,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const SizedBox(height: 8),
-                        const ZegarLogo(fontSize: 30),
-                        const SizedBox(height: 20),
+                        const ZegarLogo(fontSize: 24),
+                        const SizedBox(height: 16),
                         Text(
                           'Welcome Back! 👋',
                           style: GoogleFonts.poppins(
-                            fontSize: 26,
+                            fontSize: 20,
                             fontWeight: FontWeight.w600,
                             color: _navy,
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 5),
                         Text(
                           'Login to access your secure workplace portal',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
-                            fontSize: 13,
+                            fontSize: 12.5,
                             color: _slate,
                           ),
                         ),
@@ -216,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _fieldLabel(String text) => Text(
         text,
         style: GoogleFonts.poppins(
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: FontWeight.w600,
           color: _navy,
         ),
@@ -235,12 +235,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.poppins(color: _lightSlate, fontSize: 14),
+      hintStyle: GoogleFonts.poppins(color: _lightSlate, fontSize: 13),
       filled: true,
       fillColor: const Color(0xFFF7F8FC),
-      prefixIcon: Icon(icon, size: 20, color: _lightSlate),
+      prefixIcon: Icon(icon, size: 19, color: _lightSlate),
       suffixIcon: suffix,
-      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+      contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 14),
       enabledBorder: border(AppColors.fieldBorder),
       border: border(AppColors.fieldBorder),
       focusedBorder: border(AppColors.primary, 1.4),
@@ -254,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen> {
       controller: _emailCtrl,
       keyboardType: TextInputType.emailAddress,
       textInputAction: TextInputAction.next,
-      style: GoogleFonts.poppins(color: _navy, fontSize: 14),
+      style: GoogleFonts.poppins(color: _navy, fontSize: 13.5),
       decoration: _inputDecoration(
         icon: Icons.person_outline,
         hint: 'name@company.com',
@@ -270,7 +270,7 @@ class _LoginScreenState extends State<LoginScreen> {
       obscureText: _obscure,
       textInputAction: TextInputAction.done,
       onFieldSubmitted: (_) => _submit(),
-      style: GoogleFonts.poppins(color: _navy, fontSize: 14),
+      style: GoogleFonts.poppins(color: _navy, fontSize: 13.5),
       decoration: _inputDecoration(
         icon: Icons.lock_outline,
         hint: 'Enter your password',
@@ -278,7 +278,7 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: () => setState(() => _obscure = !_obscure),
           icon: Icon(
             _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-            size: 20,
+            size: 19,
             color: _lightSlate,
           ),
         ),
@@ -290,7 +290,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildLoginButton() {
     return SizedBox(
       width: double.infinity,
-      height: 54,
+      height: 50,
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
@@ -330,13 +330,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       'Login',
                       style: GoogleFonts.poppins(
-                        fontSize: 17,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward, color: Colors.white, size: 20),
+                    const Icon(Icons.arrow_forward, color: Colors.white, size: 18),
                   ],
                 ),
         ),
@@ -368,7 +368,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildAttendanceButton() {
     return SizedBox(
       width: double.infinity,
-      height: 54,
+      height: 50,
       child: OutlinedButton.icon(
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const FaceAttendancePage()),
@@ -381,11 +381,11 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         icon: const Icon(Icons.face_retouching_natural,
-            color: AppColors.primary, size: 24),
+            color: AppColors.primary, size: 20),
         label: Text(
           'Mark Attendance',
           style: GoogleFonts.poppins(
-            fontSize: 15.5,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
             color: AppColors.primary,
           ),
@@ -398,28 +398,28 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       children: [
         Container(
-          width: 54,
-          height: 54,
+          width: 46,
+          height: 46,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: AppColors.primary.withValues(alpha: 0.08),
           ),
           alignment: Alignment.center,
           child: Container(
-            width: 34,
-            height: 34,
+            width: 30,
+            height: 30,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: AppColors.primary.withValues(alpha: 0.14),
             ),
-            child: const Icon(Icons.shield, color: AppColors.primary, size: 18),
+            child: const Icon(Icons.shield, color: AppColors.primary, size: 16),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 9),
         Text(
           'Your data is 100% secure',
           style: GoogleFonts.poppins(
-            fontSize: 13,
+            fontSize: 12.5,
             fontWeight: FontWeight.w600,
             color: _slate,
           ),
@@ -427,7 +427,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 2),
         Text(
           'We protect what matters most',
-          style: GoogleFonts.poppins(fontSize: 12.5, color: _lightSlate),
+          style: GoogleFonts.poppins(fontSize: 11.5, color: _lightSlate),
         ),
       ],
     );
