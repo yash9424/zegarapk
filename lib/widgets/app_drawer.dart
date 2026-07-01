@@ -182,11 +182,19 @@ Future<void> confirmAndLogout(NavigatorState navigator) async {
           child: const Text('Cancel',
               style: TextStyle(color: AppColors.textSecondary)),
         ),
-        TextButton(
+        ElevatedButton.icon(
           onPressed: () => Navigator.pop(dialogContext, true),
-          child: const Text('Log Out',
-              style: TextStyle(
-                  color: AppColors.primary, fontWeight: FontWeight.w700)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+          ),
+          icon: const Icon(Icons.logout_rounded, size: 18),
+          label: const Text('Log Out',
+              style: TextStyle(fontWeight: FontWeight.w700)),
         ),
       ],
     ),
