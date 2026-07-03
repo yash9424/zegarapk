@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const SizedBox(height: 8),
-                        const ZegarLogo(fontSize: 24),
+                        const ZegarLogo(fontSize: 34),
                         const SizedBox(height: 16),
                         Text(
                           'Welcome Back! 👋',

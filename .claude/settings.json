@@ -8,7 +8,8 @@
       "Bash(stat -c %s assets/models/mobilefacenet.tflite)",
       "PowerShell(cd \"d:\\\\Zedgift Apk\"; & \"D:\\\\flutter\\\\bin\\\\flutter.bat\" run -d BQOFLVK7VGPFJ7MZ --debug 2>&1 | Tee-Object -FilePath \"$env:TEMP\\\\zedgift_run.log\")",
       "PowerShell($adb = \"C:\\\\Users\\\\dd621\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\"; $out = \"C:\\\\Users\\\\dd621\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Zedgift-Apk\\\\732f6dd5-e8b0-4b57-a128-ed78aafa9605\\\\scratchpad\\\\zg_detail.png\"; & $adb -s BQOFLVK7VGPFJ7MZ shell screencap -p /sdcard/zg_detail.png; & $adb -s BQOFLVK7VGPFJ7MZ pull /sdcard/zg_detail.png \"$out\"; & $adb -s BQOFLVK7VGPFJ7MZ shell rm /sdcard/zg_detail.png; Write-Output SAVED)",
-      "PowerShell($adb = \"C:\\\\Users\\\\dd621\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\"; $out = \"C:\\\\Users\\\\dd621\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Zedgift-Apk\\\\732f6dd5-e8b0-4b57-a128-ed78aafa9605\\\\scratchpad\\\\zg_basics.png\"; & $adb -s BQOFLVK7VGPFJ7MZ shell screencap -p /sdcard/zg_basics.png; & $adb -s BQOFLVK7VGPFJ7MZ pull /sdcard/zg_basics.png \"$out\"; & $adb -s BQOFLVK7VGPFJ7MZ shell rm /sdcard/zg_basics.png; Write-Output SAVED)"
+      "PowerShell($adb = \"C:\\\\Users\\\\dd621\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\"; $out = \"C:\\\\Users\\\\dd621\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Zedgift-Apk\\\\732f6dd5-e8b0-4b57-a128-ed78aafa9605\\\\scratchpad\\\\zg_basics.png\"; & $adb -s BQOFLVK7VGPFJ7MZ shell screencap -p /sdcard/zg_basics.png; & $adb -s BQOFLVK7VGPFJ7MZ pull /sdcard/zg_basics.png \"$out\"; & $adb -s BQOFLVK7VGPFJ7MZ shell rm /sdcard/zg_basics.png; Write-Output SAVED)",
+      "PowerShell(Get-Process | Where-Object { $_.ProcessName -match '^\\(dart|flutter\\)' } | ForEach-Object { try { Stop-Process -Id $_.Id -Force -Confirm:$false } catch {} }; Write-Output \"cleared\")"
     ]
   }
 }
