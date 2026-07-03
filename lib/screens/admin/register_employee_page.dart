@@ -45,7 +45,10 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
   List<List<double>>? _embeddings;
   String? _faceImagePath;
   bool _submitting = false;
-  int _captureSession = 0; // bump to reset the camera widget after a register
+
+  // Keys the camera widget: swapping to a fresh key resets it after a
+  // register, and gives the title-row button access to switchCamera().
+  GlobalKey<InlineFaceEnrollState> _camKey = GlobalKey();
 
   @override
   void initState() {
@@ -101,8 +104,8 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
   /// result is held until "Register" is tapped.
   Widget _captureArea() {
     return InlineFaceEnroll(
-      // Bump the session key to reset the camera after a successful register.
-      key: ValueKey(_captureSession),
+      key: _camKey,
+      showSwitchButton: false, // the title row hosts the flip button
       onCaptured: (embeddings, imagePath) => setState(() {
         _embeddings = embeddings;
         _faceImagePath = imagePath;
@@ -137,7 +140,7 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
         _faceImagePath = null;
         _selected = null;
         _submitting = false;
-        _captureSession++; // recreate the camera widget fresh
+        _camKey = GlobalKey(); // recreate the camera widget fresh
       });
     } catch (_) {
       if (!mounted) return;
@@ -167,17 +170,23 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
               children: [
                 const SizedBox(height: 4),
-                const Center(
-                  child: Text(
-                    'Register Face',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
+                // Title + camera flip button, side by side, centred as a pair.
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Register Face',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    _swapCameraButton(),
+                  ],
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 18),
                 Center(child: _captureArea()),
                 const SizedBox(height: 24),
                 _formCard(),
@@ -200,6 +209,35 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
         onTap: (i) => goToAdminTab(context, i),
       ),
       body: content,
+    );
+  }
+
+  /// Camera flip (front ↔ back) — styled like the app's tinted icon tiles.
+  Widget _swapCameraButton() {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _camKey.currentState?.switchCamera(),
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.fieldBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Icon(Icons.cameraswitch_rounded,
+              color: AppColors.primary, size: 21),
+        ),
+      ),
     );
   }
 

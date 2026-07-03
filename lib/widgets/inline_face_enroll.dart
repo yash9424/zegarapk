@@ -22,9 +22,15 @@ class InlineFaceEnroll extends StatefulWidget {
     this.size = 240,
     this.onCaptured,
     this.onRetake,
+    this.showSwitchButton = true,
   });
 
   final double size;
+
+  /// Hide the built-in overlay flip button when the page hosts its own
+  /// (e.g. next to the title). Switching is then driven via
+  /// [InlineFaceEnrollState.switchCamera] through a GlobalKey.
+  final bool showSwitchButton;
 
   /// Fired once all five angles are captured. The parent holds the data and
   /// uploads it after an employee is chosen and "Register" is tapped.
@@ -36,7 +42,7 @@ class InlineFaceEnroll extends StatefulWidget {
   final VoidCallback? onRetake;
 
   @override
-  State<InlineFaceEnroll> createState() => _InlineFaceEnrollState();
+  State<InlineFaceEnroll> createState() => InlineFaceEnrollState();
 }
 
 class _Step {
@@ -45,7 +51,7 @@ class _Step {
   final IconData icon;
 }
 
-class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
+class InlineFaceEnrollState extends State<InlineFaceEnroll> {
   static const _steps = <_Step>[
     _Step('Look straight at the camera', Icons.center_focus_strong),
     _Step('Slowly turn your head RIGHT', Icons.arrow_forward),
@@ -135,7 +141,8 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
   }
 
   /// Flip between the front and back camera. Resets the capture in progress.
-  Future<void> _switchCamera() async {
+  /// Public so a host page can trigger it from its own button via a GlobalKey.
+  Future<void> switchCamera() async {
     if (_cameras.length < 2 || _initializing) return;
     _looping = false;
     final old = _cam;
@@ -328,7 +335,11 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
               // Centre status: % while capturing, check when done.
               if (_fatal == null) _centreBadge(percent),
               // Flip-camera button (front ↔ back), top-right of the circle.
-              if (_fatal == null && !_done && _cameras.length > 1)
+              // Hidden when the host page provides its own switch button.
+              if (widget.showSwitchButton &&
+                  _fatal == null &&
+                  !_done &&
+                  _cameras.length > 1)
                 Positioned(
                   top: 4,
                   right: 4,
@@ -337,7 +348,7 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
                     shape: const CircleBorder(),
                     child: InkWell(
                       customBorder: const CircleBorder(),
-                      onTap: _switchCamera,
+                      onTap: switchCamera,
                       child: const Padding(
                         padding: EdgeInsets.all(9),
                         child: Icon(Icons.cameraswitch_rounded,
@@ -375,7 +386,8 @@ class _InlineFaceEnrollState extends State<InlineFaceEnroll> {
       final mirror = _lens == CameraLensDirection.front;
       return Transform(
         alignment: Alignment.center,
-        transform: Matrix4.identity()..scale(mirror ? -1.0 : 1.0, 1.0, 1.0),
+        transform: Matrix4.identity()
+          ..scaleByDouble(mirror ? -1.0 : 1.0, 1.0, 1.0, 1.0),
         child: Image.file(
           File(_straightImagePath!),
           fit: BoxFit.cover,
