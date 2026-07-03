@@ -55,9 +55,13 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
 
   List<_AttRow> _rows = const [];
 
-  static const _monthNames = [
-    'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY',
-    'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
+  static const _monthFullNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+  static const _monthShortNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
   ];
   static const _weekdayShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -73,9 +77,6 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
 
   /// Format the backend expects in the query string: yyyy-MM-dd.
   String get _dateParam => '${_date.year}-${_two(_date.month)}-${_two(_date.day)}';
-
-  /// "OCTOBER 2025" — the month-dropdown label.
-  String get _monthLabel => '${_monthNames[_date.month - 1]} ${_date.year}';
 
   int get _daysInMonth => DateTime(_date.year, _date.month + 1, 0).day;
 
@@ -151,26 +152,86 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
     _load();
   }
 
-  /// Month/year dropdown — opens the native picker so the admin can jump to
-  /// any month, then the day strip re-renders for that month.
-  Future<void> _pickMonth() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(2020),
-      lastDate: _today(),
-      helpText: 'Select date',
-      initialDatePickerMode: DatePickerMode.year,
+  /// Jump to another month / year (keeps the day, clamped to that month's
+  /// length), reload and re-centre the day strip.
+  void _setMonthYear(int month, int year) {
+    final lastDay = DateTime(year, month + 1, 0).day;
+    final d = DateTime(year, month, _date.day.clamp(1, lastDay));
+    if (d == _date) return;
+    setState(() => _date = d);
+    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelectedDay());
+  }
+
+  Future<void> _pickMonthSheet() async {
+    final picked = await _pickFromSheet<int>(
+      title: 'Select Month',
+      items: [for (var m = 1; m <= 12; m++) (m, _monthFullNames[m - 1])],
+      selected: _date.month,
     );
-    if (picked != null) {
-      final d = DateTime(picked.year, picked.month, picked.day);
-      if (d != _date) {
-        setState(() => _date = d);
-        _load();
-        WidgetsBinding.instance
-            .addPostFrameCallback((_) => _scrollToSelectedDay());
-      }
-    }
+    if (picked != null) _setMonthYear(picked, _date.year);
+  }
+
+  Future<void> _pickYearSheet() async {
+    final now = DateTime.now();
+    final years = [for (var y = now.year - 4; y <= now.year; y++) y];
+    final picked = await _pickFromSheet<int>(
+      title: 'Select Year',
+      items: [for (final y in years) (y, '$y')],
+      selected: _date.year,
+    );
+    if (picked != null) _setMonthYear(_date.month, picked);
+  }
+
+  Future<T?> _pickFromSheet<T>({
+    required String title,
+    required List<(T, String)> items,
+    required T selected,
+  }) {
+    return showModalBottomSheet<T>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final it in items)
+                    ListTile(
+                      title: Text(it.$2,
+                          style: TextStyle(
+                            fontWeight: it.$1 == selected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: it.$1 == selected
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
+                          )),
+                      trailing: it.$1 == selected
+                          ? const Icon(Icons.check_rounded,
+                              color: AppColors.primary, size: 20)
+                          : null,
+                      onTap: () => Navigator.pop(ctx, it.$1),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -180,9 +241,9 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
       child: Column(
         children: [
           _appBar(),
-          _searchBar(),
-          const SizedBox(height: 14),
           _dailyHeader(),
+          _searchBar(),
+          const SizedBox(height: 16),
           _calendarBar(),
           const SizedBox(height: 12),
           Expanded(child: _content()),
@@ -293,58 +354,58 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
     ));
   }
 
-  /// "Daily Attendance" title with the month dropdown on the right.
+  /// Title (brand red) on the left + Month / Year filter pills on the right —
+  /// same layout as the Salary / Loan / Advance pages.
   Widget _dailyHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
       child: Row(
         children: [
-          const Expanded(
-            child: Text(
-              'Daily Attendance',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-              ),
+          const Text(
+            'Attendance',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: AppColors.primary,
             ),
           ),
-          const SizedBox(width: 12),
-          _monthDropdown(),
+          const Spacer(),
+          _filterPill(
+              label: _monthShortNames[_date.month - 1], onTap: _pickMonthSheet),
+          const SizedBox(width: 8),
+          _filterPill(label: '${_date.year}', onTap: _pickYearSheet),
         ],
       ),
     );
   }
 
-  Widget _monthDropdown() {
-    return InkWell(
-      borderRadius: BorderRadius.circular(10),
-      onTap: _pickMonth,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.fieldBorder),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.calendar_today,
-                size: 15, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Text(
-              _monthLabel,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(width: 2),
-            const Icon(Icons.keyboard_arrow_down,
-                size: 18, color: AppColors.textMuted),
-          ],
+  Widget _filterPill({required String label, required VoidCallback onTap}) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.fieldBorder),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  )),
+              const SizedBox(width: 4),
+              const Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 18, color: AppColors.textSecondary),
+            ],
+          ),
         ),
       ),
     );
