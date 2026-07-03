@@ -331,15 +331,18 @@ class _AdminHomePageState extends State<AdminHomePage>
               builder: (_) => const SalaryPage()))),
     ];
     // 2-column grid, equal-height pairs, with a staggered entrance per row.
+    // Cards hug their content; leftover screen space goes BETWEEN the rows
+    // (spaceEvenly), not inside the boxes.
     final rowCount = (items.length / 2).ceil();
     return Column(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        for (var r = 0; r < rowCount; r++) ...[
-          Expanded(
-            child: _introWrap(
-              r,
-              rowCount,
-              Row(
+        for (var r = 0; r < rowCount; r++)
+          _introWrap(
+            r,
+            rowCount,
+            IntrinsicHeight(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(child: _actionCard(items[r * 2])),
@@ -353,8 +356,6 @@ class _AdminHomePageState extends State<AdminHomePage>
               ),
             ),
           ),
-          if (r != rowCount - 1) const SizedBox(height: 14),
-        ],
       ],
     );
   }
