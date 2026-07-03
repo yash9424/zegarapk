@@ -39,6 +39,13 @@ class AdminProfilePage extends StatelessWidget {
                   '',
                   [
                     _InfoRow(
+                      icon: Icons.business_outlined,
+                      iconColor: AppColors.primary,
+                      label: 'Company Name',
+                      value:
+                          user.companyName.isEmpty ? '—' : user.companyName,
+                    ),
+                    _InfoRow(
                       icon: Icons.person_outline,
                       iconColor: AppColors.primary,
                       label: 'Full Name',
@@ -63,19 +70,6 @@ class AdminProfilePage extends StatelessWidget {
                       iconColor: AppColors.primary,
                       label: 'Phone',
                       value: user.phone.isEmpty ? '—' : user.phone,
-                    ),
-                    _InfoRow(
-                      icon: Icons.business_outlined,
-                      iconColor: AppColors.primary,
-                      label: 'Company Name',
-                      value:
-                          user.companyName.isEmpty ? '—' : user.companyName,
-                    ),
-                    _InfoRow(
-                      icon: Icons.tag,
-                      iconColor: AppColors.primary,
-                      label: 'Company ID',
-                      value: user.companyId.isEmpty ? '—' : user.companyId,
                     ),
                     _InfoRow(
                       icon: Icons.verified_user_outlined,
