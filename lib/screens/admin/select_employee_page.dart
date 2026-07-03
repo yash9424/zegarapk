@@ -38,13 +38,12 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
   List<EmployeeListItem> _employees = const [];
   EmployeeListItem? _selected;
 
-  // Records for the selected employee.
+  // Records — the company-wide list, optionally narrowed to one employee.
   bool _recLoading = false;
   String? _recError;
   List<AdvanceRecord> _adv = const [];
-  List<DeductionRecord> _ded = const [];
+  List<LoanRecord> _loans = const [];
   List<SalaryRecord> _sal = const [];
-  List<NamedCount> _dedTypes = const []; // loan/deduction types for the form
 
   static const _months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -63,18 +62,6 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
 
   String _mName(int m) => (m >= 1 && m <= 12) ? _months[m - 1] : '$m';
 
-  /// Format a server `created_at` ("2026-06-29 10:30:00") to a friendly
-  /// "29 Jun 2026, 10:30 AM". Falls back to the raw value if unparseable.
-  String _fmtDateTime(String raw) {
-    if (raw.trim().isEmpty) return '';
-    final dt = DateTime.tryParse(raw.trim().replaceFirst(' ', 'T'));
-    if (dt == null) return raw;
-    final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-    final ap = dt.hour < 12 ? 'AM' : 'PM';
-    final mm = dt.minute.toString().padLeft(2, '0');
-    return '${dt.day} ${_mName(dt.month)} ${dt.year}, $h:$mm $ap';
-  }
-
   @override
   void initState() {
     super.initState();
@@ -82,6 +69,7 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
     _month = now.month;
     _year = now.year;
     _load();
+    _loadRecords(); // Loan / Advance lists load company-wide immediately
   }
 
   Future<void> _load() async {
@@ -109,40 +97,49 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
     final picked = await pickEmployee(context, _employees);
     if (picked != null && mounted) {
       setState(() => _selected = picked);
-      _loadRecords(picked.id);
+      _loadRecords();
     }
   }
 
-  Future<void> _loadRecords(int empId) async {
+  void _clearEmployee() {
+    setState(() => _selected = null);
+    _loadRecords();
+  }
+
+  /// Loads the Loan / Advance list from the company-wide endpoints
+  /// (`GET /loans/`, `GET /advances/`), narrowed by the month/year pills and,
+  /// if one is picked in the search bar, a single employee.
+  Future<void> _loadRecords() async {
     setState(() {
       _recLoading = true;
       _recError = null;
       _adv = const [];
-      _ded = const [];
+      _loans = const [];
       _sal = const [];
     });
     try {
       final api = ZedgiftApi.instance;
+      final empId = _selected?.id;
       switch (_section) {
         case _Section.advance:
-          _adv = await api.advances(empId, month: _month, year: _year);
+          _adv = await api.advancesAll(
+              month: _month, year: _year, employeeId: empId);
           break;
         case _Section.loan:
-          final r = await Future.wait([
-            api.deductions(empId, month: _month, year: _year),
-            api.deductionTypes(),
-          ]);
-          _ded = r[0] as List<DeductionRecord>;
-          _dedTypes = r[1] as List<NamedCount>;
+          _loans = await api.loans(
+              month: _month, year: _year, employeeId: empId);
           break;
         case _Section.salary:
-          final now = DateTime.now();
-          final futures = <Future<SalaryRecord?>>[];
-          for (var i = 0; i < 6; i++) {
-            final d = DateTime(now.year, now.month - i, 1);
-            futures.add(api.salaryForMonth(empId, d.month, d.year));
+          if (empId != null) {
+            final now = DateTime.now();
+            final futures = <Future<SalaryRecord?>>[];
+            for (var i = 0; i < 6; i++) {
+              final d = DateTime(now.year, now.month - i, 1);
+              futures.add(api.salaryForMonth(empId, d.month, d.year));
+            }
+            _sal =
+                (await Future.wait(futures)).whereType<SalaryRecord>().toList();
           }
-          _sal = (await Future.wait(futures)).whereType<SalaryRecord>().toList();
           break;
       }
       if (!mounted) return;
@@ -181,7 +178,13 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
   // ---- CRUD: Advance -------------------------------------------------------
 
   Future<void> _advanceForm({AdvanceRecord? existing}) async {
-    final empId = _selected!.id;
+    final empId = existing != null && existing.employeeId > 0
+        ? existing.employeeId
+        : _selected?.id;
+    if (empId == null) {
+      _snack('Search and select an employee first.');
+      return;
+    }
     final now = DateTime.now();
     final amountCtl = TextEditingController(
         text: existing == null ? '' : existing.amountRaw.toStringAsFixed(0));
@@ -226,65 +229,7 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
             remark: remarkCtl.text);
       }
       _snack('Advance saved.');
-      _loadRecords(empId);
-    } catch (_) {
-      _snack('Could not save. Please try again.');
-    }
-  }
-
-  // ---- CRUD: Deduction (Loan) ----------------------------------------------
-
-  Future<void> _deductionForm({DeductionRecord? existing}) async {
-    final empId = _selected!.id;
-    if (_dedTypes.isEmpty) {
-      _snack('Deduction types not available.');
-      return;
-    }
-    final amountCtl = TextEditingController(
-        text: existing == null ? '' : existing.amountRaw.toStringAsFixed(0));
-    final descCtl = TextEditingController(text: existing?.description ?? '');
-    var typeId = existing?.typeId ?? _dedTypes.first.id;
-
-    final ok = await _formSheet(
-      title: existing == null ? 'Add Loan / Deduction' : 'Edit Deduction',
-      builder: (setSheet) => [
-        _dropdown<int>(
-          label: 'Type',
-          value: _dedTypes.any((t) => t.id == typeId)
-              ? typeId
-              : _dedTypes.first.id,
-          items: [for (final t in _dedTypes) (t.id, t.name)],
-          onChanged: (v) => setSheet(() => typeId = v),
-        ),
-        const SizedBox(height: 14),
-        _formField(amountCtl, 'Amount (₹)', number: true),
-        const SizedBox(height: 14),
-        _formField(descCtl, 'Description (optional)'),
-      ],
-    );
-    if (ok != true) return;
-    final amount = amountCtl.text.trim();
-    if (amount.isEmpty) {
-      _snack('Enter an amount.');
-      return;
-    }
-    try {
-      final api = ZedgiftApi.instance;
-      if (existing == null) {
-        await api.createDeduction(
-            employeeId: empId,
-            typeId: typeId,
-            amount: amount,
-            description: descCtl.text);
-      } else {
-        await api.updateDeduction(existing.id,
-            employeeId: empId,
-            typeId: typeId,
-            amount: amount,
-            description: descCtl.text);
-      }
-      _snack('Deduction saved.');
-      _loadRecords(empId);
+      _loadRecords();
     } catch (_) {
       _snack('Could not save. Please try again.');
     }
@@ -293,15 +238,17 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
   // ---- Row actions (edit / delete / payout) --------------------------------
 
   Future<void> _advanceActions(AdvanceRecord a) async {
+    final who = a.employeeName.isNotEmpty
+        ? a.employeeName
+        : '${_mName(a.month)} ${a.year}';
     final action = await _actionSheet(
-      '${_mName(a.month)} ${a.year} • ${a.amount}',
+      '$who • ${a.amount}',
       [
         if (!a.paid) ('payout', Icons.check_circle_outline, 'Mark paid out'),
         ('edit', Icons.edit_outlined, 'Edit'),
         ('delete', Icons.delete_outline, 'Delete'),
       ],
     );
-    final empId = _selected!.id;
     if (action == 'edit') {
       await _advanceForm(existing: a);
     } else if (action == 'delete') {
@@ -309,7 +256,7 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
         try {
           await ZedgiftApi.instance.deleteAdvance(a.id);
           _snack('Advance deleted.');
-          _loadRecords(empId);
+          _loadRecords();
         } catch (_) {
           _snack('Could not delete.');
         }
@@ -318,33 +265,9 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
       try {
         await ZedgiftApi.instance.payoutAdvance(a.id);
         _snack('Marked as paid out.');
-        _loadRecords(empId);
+        _loadRecords();
       } catch (_) {
         _snack('Could not update.');
-      }
-    }
-  }
-
-  Future<void> _deductionActions(DeductionRecord d) async {
-    final action = await _actionSheet(
-      '${d.typeName} • ${d.amount}',
-      [
-        ('edit', Icons.edit_outlined, 'Edit'),
-        ('delete', Icons.delete_outline, 'Delete'),
-      ],
-    );
-    final empId = _selected!.id;
-    if (action == 'edit') {
-      await _deductionForm(existing: d);
-    } else if (action == 'delete') {
-      if (await _confirmDelete('deduction')) {
-        try {
-          await ZedgiftApi.instance.deleteDeduction(d.id);
-          _snack('Deduction deleted.');
-          _loadRecords(empId);
-        } catch (_) {
-          _snack('Could not delete.');
-        }
       }
     }
   }
@@ -570,7 +493,7 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
                   const SizedBox(height: 16),
                   _searchBar(),
                   const SizedBox(height: 20),
-                  if (_selected != null) _recordsArea(),
+                  _recordsArea(),
                 ],
               ),
             ),
@@ -645,7 +568,7 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
     );
     if (picked != null && picked != _month) {
       setState(() => _month = picked);
-      if (_selected != null) _loadRecords(_selected!.id);
+      _loadRecords();
     }
   }
 
@@ -659,7 +582,7 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
     );
     if (picked != null && picked != _year) {
       setState(() => _year = picked);
-      if (_selected != null) _loadRecords(_selected!.id);
+      _loadRecords();
     }
   }
 
@@ -714,19 +637,42 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
     );
   }
 
-  /// Shared search bar (same as the Salary page) — tapping opens the employee
-  /// picker sheet.
+  /// Shared search bar — tapping opens the employee picker; picking one
+  /// filters the list to that employee. The ✕ chip clears the filter.
   Widget _searchBar() {
     final e = _selected;
-    return SearchField(
-      hint: _loading
-          ? 'Loading employees...'
-          : _error != null
-              ? _error!
-              : e == null
-                  ? 'Search employee name or ID...'
-                  : e.name,
-      onTap: _loading ? () {} : _pickEmployee,
+    return Row(
+      children: [
+        Expanded(
+          child: SearchField(
+            hint: _loading
+                ? 'Loading employees...'
+                : _error != null
+                    ? _error!
+                    : e == null
+                        ? 'Search employee name or ID...'
+                        : e.name,
+            onTap: _loading ? () {} : _pickEmployee,
+          ),
+        ),
+        if (e != null) ...[
+          const SizedBox(width: 8),
+          Material(
+            color: AppColors.softRedTint,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _clearEmployee,
+              child: const SizedBox(
+                width: 40,
+                height: 40,
+                child: Icon(Icons.close_rounded,
+                    color: AppColors.primary, size: 20),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -759,11 +705,9 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
                   ),
                 ),
               )
-            else
+            else if (_section == _Section.advance)
               GestureDetector(
-                onTap: () => _section == _Section.advance
-                    ? _advanceForm()
-                    : _deductionForm(),
+                onTap: _advanceForm,
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -803,23 +747,24 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
     );
   }
 
-  /// Full-month date range, e.g. "01 Jun – 30 Jun, 2026".
-  String _monthRange(int m, int y) {
-    final last = DateTime(y, m + 1, 0).day;
-    final mm = _mName(m);
-    return '01 $mm – $last $mm, $y';
-  }
-
   List<Widget> _rows() {
     switch (_section) {
       case _Section.advance:
-        if (_adv.isEmpty) return [_empty('No advances found.')];
+        if (_adv.isEmpty) {
+          return [_empty('No advances for ${_mName(_month)} $_year.')];
+        }
         return [
           for (final a in _adv)
             _recordCard(
               icon: Icons.event_rounded,
-              title: '${_mName(a.month)} ${a.year}',
-              subtitle: _monthRange(a.month, a.year),
+              title: a.employeeName.isNotEmpty
+                  ? a.employeeName
+                  : '${_mName(a.month)} ${a.year}',
+              subtitle: [
+                '${_mName(a.month)} ${a.year}',
+                if (a.customId > 0) 'ID ${a.customId}',
+                if (a.remark.isNotEmpty) a.remark,
+              ].join(' • '),
               amount: a.amount,
               pill: a.paid ? 'Paid' : 'Pending',
               pillOk: a.paid,
@@ -827,17 +772,24 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
             ),
         ];
       case _Section.loan:
-        if (_ded.isEmpty) return [_empty('No loan / deduction records found.')];
+        if (_loans.isEmpty) {
+          return [_empty('No loans for ${_mName(_month)} $_year.')];
+        }
         return [
-          for (final d in _ded)
+          for (final l in _loans)
             _recordCard(
               icon: Icons.account_balance_rounded,
-              title: d.typeName.isEmpty ? 'Deduction' : d.typeName,
-              subtitle: d.description.isNotEmpty
-                  ? d.description
-                  : _fmtDateTime(d.date),
-              amount: d.amount,
-              onTap: () => _deductionActions(d),
+              title: l.employeeName.isNotEmpty ? l.employeeName : 'Loan',
+              subtitle: [
+                if (l.customId > 0) 'ID ${l.customId}',
+                '${l.perMonth} / month',
+                if (l.remark.isNotEmpty) l.remark,
+              ].join(' • '),
+              amount: l.amount,
+              pill: l.status.isEmpty
+                  ? null
+                  : l.status[0].toUpperCase() + l.status.substring(1),
+              pillOk: l.status.toLowerCase() == 'active',
             ),
         ];
       case _Section.salary:

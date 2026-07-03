@@ -641,6 +641,9 @@ class AdvanceRecord {
     required this.amountRaw,
     required this.remark,
     required this.paid,
+    required this.employeeId,
+    required this.employeeName,
+    required this.customId,
   });
 
   final int id;
@@ -651,15 +654,66 @@ class AdvanceRecord {
   final String remark;
   final bool paid; // payout == 1
 
-  factory AdvanceRecord.fromJson(Map<String, dynamic> j) => AdvanceRecord(
-        id: _int(j['id']),
-        month: _int(j['month']),
-        year: _int(j['year']),
-        amount: _money(j['amount']),
-        amountRaw: _dbl(j['amount']),
-        remark: _str(j['remark']).trim(),
-        paid: _int(j['payout']) == 1,
-      );
+  // From the nested `employee` object (present on the company-wide list).
+  final int employeeId;
+  final String employeeName;
+  final int customId;
+
+  factory AdvanceRecord.fromJson(Map<String, dynamic> j) {
+    final emp = (j['employee'] as Map?)?.cast<String, dynamic>();
+    return AdvanceRecord(
+      id: _int(j['id']),
+      month: _int(j['month']),
+      year: _int(j['year']),
+      amount: _money(j['amount']),
+      amountRaw: _dbl(j['amount']),
+      remark: _str(j['remark']).trim(),
+      paid: _int(j['payout']) == 1,
+      employeeId: emp != null ? _int(emp['id']) : _int(j['employee_id']),
+      employeeName: emp == null ? '' : _str(emp['name']).trim(),
+      customId: emp == null ? 0 : _int(emp['custom_employee_id']),
+    );
+  }
+}
+
+/// A loan from the company-wide `GET /loans/` list (includes the employee).
+class LoanRecord {
+  LoanRecord({
+    required this.id,
+    required this.amount,
+    required this.perMonth,
+    required this.remark,
+    required this.status,
+    required this.createdAt,
+    required this.employeeId,
+    required this.employeeName,
+    required this.customId,
+  });
+
+  final int id;
+  final String amount; // formatted ₹
+  final String perMonth; // formatted ₹, EMI per month
+  final String remark;
+  final String status; // e.g. "active"
+  final String createdAt;
+  final int employeeId;
+  final String employeeName;
+  final int customId;
+
+  factory LoanRecord.fromJson(Map<String, dynamic> j) {
+    final emp = (j['employee'] as Map?)?.cast<String, dynamic>();
+    return LoanRecord(
+      id: _int(j['id']),
+      amount: _money(j['amount']),
+      perMonth: _money(j['per_month_amount']),
+      remark: _str(j['remark']).trim(),
+      status: _str(j['status']).trim(),
+      createdAt: _str(j['created_at']),
+      employeeId: emp != null ? _int(emp['id']) : _int(j['employee_id']),
+      employeeName: emp == null ? '' : _str(emp['name']).trim(),
+      customId: emp == null ? 0 : _int(emp['custom_employee_id']),
+    );
+  }
 }
 
 /// A deduction entry (Loan Advance / Penalty / Uniform) from

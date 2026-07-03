@@ -202,6 +202,29 @@ class ZedgiftApi {
 
   /// Salary advances for an employee (`GET /advances?employee_id=`).
   /// Optional [month]/[year] scope it to a period (server defaults to current).
+  /// Company-wide advance list (`GET /advances/`), optionally narrowed to an
+  /// employee / month / year. Each record carries its employee.
+  Future<List<AdvanceRecord>> advancesAll(
+      {int? month, int? year, int? employeeId}) async {
+    final data = await _c.get('advances', query: {
+      'employee_id': ?employeeId,
+      'month': ?month,
+      'year': ?year,
+    });
+    return _list(data).map(AdvanceRecord.fromJson).toList();
+  }
+
+  /// Company-wide loan list (`GET /loans/`). Each record carries its employee.
+  Future<List<LoanRecord>> loans(
+      {int? month, int? year, int? employeeId}) async {
+    final data = await _c.get('loans', query: {
+      'employee_id': ?employeeId,
+      'month': ?month,
+      'year': ?year,
+    });
+    return _list(data).map(LoanRecord.fromJson).toList();
+  }
+
   Future<List<AdvanceRecord>> advances(int employeeId,
       {int? month, int? year}) async {
     final data = await _c.get('advances', query: {
