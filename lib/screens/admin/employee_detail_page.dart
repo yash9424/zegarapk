@@ -9,6 +9,7 @@ import '../../services/api_client.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/time_format.dart';
+import '../../widgets/app_header.dart';
 import '../../widgets/user_avatar.dart';
 import 'register_employee_page.dart';
 
@@ -55,8 +56,18 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
   static const _redBg = Color(0xFFFBE3E6);
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   @override
@@ -90,7 +101,10 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
       ];
 
       final results = await Future.wait([
-        safe(api.attendanceHistory(widget.employeeId), <AttendanceHistoryDay>[]),
+        safe(
+          api.attendanceHistory(widget.employeeId),
+          <AttendanceHistoryDay>[],
+        ),
         safe(Future.wait(salaryFutures), <SalaryRecord?>[]),
         safe(api.advances(widget.employeeId), <AdvanceRecord>[]),
         safe(api.deductions(widget.employeeId), <DeductionRecord>[]),
@@ -103,8 +117,9 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
       setState(() {
         _emp = emp;
         _history = results[0] as List<AttendanceHistoryDay>;
-        _salaries =
-            (results[1] as List<SalaryRecord?>).whereType<SalaryRecord>().toList();
+        _salaries = (results[1] as List<SalaryRecord?>)
+            .whereType<SalaryRecord>()
+            .toList();
         _advances = results[2] as List<AdvanceRecord>;
         _deductions = results[3] as List<DeductionRecord>;
         _leaves = results[4] as List<LeaveRecord>;
@@ -121,31 +136,33 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  void _openFaceRegister() {
     final name = _emp?.name.isNotEmpty == true
         ? _emp!.name
         : (widget.fallbackName.isEmpty ? 'Employee' : widget.fallbackName);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RegisterEmployeePage(
+          initialEmployeeId: widget.employeeId,
+          initialEmployeeName: name,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffold,
-      appBar: AppBar(
-        title: Text(name),
-        actions: [
-          IconButton(
-            tooltip: 'Register Face',
-            icon: const Icon(Icons.face_retouching_natural),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => RegisterEmployeePage(
-                  initialEmployeeId: widget.employeeId,
-                  initialEmployeeName: name,
-                ),
-              ),
-            ),
-          ),
-        ],
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const AppHeader(leadingIcon: Icons.arrow_back),
+            Expanded(child: _body()),
+          ],
+        ),
       ),
-      body: _body(),
     );
   }
 
@@ -162,8 +179,10 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
           children: [
             const Icon(Icons.cloud_off, size: 48, color: AppColors.textMuted),
             const SizedBox(height: 12),
-            Text(_error ?? 'Not found',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+            Text(
+              _error ?? 'Not found',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+            ),
             const SizedBox(height: 14),
             OutlinedButton(onPressed: _load, child: const Text('Retry')),
           ],
@@ -190,9 +209,10 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
   // ---- Header --------------------------------------------------------------
 
   Widget _headerCard(EmployeeDetail e) {
-    final sub = [e.designationName, e.departmentName]
-        .where((s) => s.isNotEmpty)
-        .join(' • ');
+    final sub = [
+      e.designationName,
+      e.departmentName,
+    ].where((s) => s.isNotEmpty).join(' • ');
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -201,42 +221,77 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         border: Border.all(color: AppColors.fieldBorder),
       ),
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
-      child: Column(
+      child: Stack(
         children: [
-          UserAvatar(name: e.name, radius: 40, ring: true),
-          const SizedBox(height: 14),
-          Text(
-            e.name.isEmpty ? 'Unnamed' : e.name,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          if (sub.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              sub,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+          // Register Face — top-right corner of the profile card (was in the
+          // old AppBar; the shared AppHeader has no action slot).
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Material(
+              color: AppColors.softRedTint,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _openFaceRegister,
+                child: const SizedBox(
+                  width: 38,
+                  height: 38,
+                  child: Icon(
+                    Icons.face_retouching_natural,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                ),
               ),
             ),
-          ],
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
+          ),
+          Column(
             children: [
-              _chip(Icons.badge_outlined, 'ID: ${e.customId}',
-                  AppColors.softRedTint, AppColors.primary),
-              if (e.typeName.isNotEmpty)
-                _chip(Icons.work_outline, e.typeName, const Color(0xFFEDEFF4),
-                    AppColors.textSecondary),
+              UserAvatar(name: e.name, radius: 40, ring: true),
+              const SizedBox(height: 14),
+              Text(
+                e.name.isEmpty ? 'Unnamed' : e.name,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              if (sub.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  sub,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  _chip(
+                    Icons.badge_outlined,
+                    'ID: ${e.customId}',
+                    AppColors.softRedTint,
+                    AppColors.primary,
+                  ),
+                  if (e.typeName.isNotEmpty)
+                    _chip(
+                      Icons.work_outline,
+                      e.typeName,
+                      const Color(0xFFEDEFF4),
+                      AppColors.textSecondary,
+                    ),
+                ],
+              ),
             ],
           ),
         ],
@@ -247,16 +302,23 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
   Widget _chip(IconData icon, String label, Color bg, Color fg) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: fg),
           const SizedBox(width: 6),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 12.5, fontWeight: FontWeight.w600, color: fg)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
         ],
       ),
     );
@@ -403,23 +465,35 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         rows: [
           for (final s in _salaries)
             [
-              _twoLine('${_monthName(s.month)} ${s.year}', 'Base ${s.fixSalary}'),
-              Text(s.netSalary,
-                  style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary)),
+              _twoLine(
+                '${_monthName(s.month)} ${s.year}',
+                'Base ${s.fixSalary}',
+              ),
+              Text(
+                s.netSalary,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.download_rounded,
-                      size: 16, color: AppColors.primary),
+                  Icon(
+                    Icons.download_rounded,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
                   const SizedBox(width: 4),
-                  Text('PDF',
-                      style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary)),
+                  Text(
+                    'PDF',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -428,8 +502,10 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
       const SizedBox(height: 8),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Text('Tap a row to download that month\'s salary slip.',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        child: Text(
+          'Tap a row to download that month\'s salary slip.',
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        ),
       ),
     ];
   }
@@ -461,14 +537,19 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         rows: [
           for (final l in _leaves)
             [
-              _twoLine(_fmtDate(l.startDate),
-                  '${l.days} day${l.days == 1 ? '' : 's'}'),
-              Text(l.reason.isEmpty ? '—' : l.reason,
-                  style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
-                      color: AppColors.textPrimary)),
+              _twoLine(
+                _fmtDate(l.startDate),
+                '${l.days} day${l.days == 1 ? '' : 's'}',
+              ),
+              Text(
+                l.reason.isEmpty ? '—' : l.reason,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                  color: AppColors.textPrimary,
+                ),
+              ),
               _leaveStatusPill(l.status),
             ],
         ],
@@ -503,15 +584,23 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         rows: [
           for (final a in _advances)
             [
-              _twoLine('${_monthName(a.month)} ${a.year}',
-                  a.remark.isEmpty ? '' : a.remark),
-              Text(a.amount,
-                  style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary)),
-              _statusPill(a.paid ? 'PAID' : 'UNPAID',
-                  a.paid ? _green : _amber, a.paid ? _greenBg : _amberBg),
+              _twoLine(
+                '${_monthName(a.month)} ${a.year}',
+                a.remark.isEmpty ? '' : a.remark,
+              ),
+              Text(
+                a.amount,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              _statusPill(
+                a.paid ? 'PAID' : 'UNPAID',
+                a.paid ? _green : _amber,
+                a.paid ? _greenBg : _amberBg,
+              ),
             ],
         ],
       ),
@@ -545,16 +634,22 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         rows: [
           for (final d in _deductions)
             [
-              _twoLine(d.typeName,
-                  d.description.isEmpty ? '' : d.description),
-              Text(d.amount,
-                  style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: _red)),
-              Text(_fmtDate(d.date),
-                  style:
-                      TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+              _twoLine(d.typeName, d.description.isEmpty ? '' : d.description),
+              Text(
+                d.amount,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: _red,
+                ),
+              ),
+              Text(
+                _fmtDate(d.date),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ],
         ],
       ),
@@ -575,17 +670,22 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         rows: [
           for (final d in _history)
             [
-              Text(_fmtDate(d.date),
-                  style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary)),
-              Text(to12Hour(d.dutyIn).isEmpty ? '—' : to12Hour(d.dutyIn),
-                  style:
-                      TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-              Text(to12Hour(d.dutyOut).isEmpty ? '—' : to12Hour(d.dutyOut),
-                  style:
-                      TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+              Text(
+                _fmtDate(d.date),
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                to12Hour(d.dutyIn).isEmpty ? '—' : to12Hour(d.dutyIn),
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+              Text(
+                to12Hour(d.dutyOut).isEmpty ? '—' : to12Hour(d.dutyOut),
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
             ],
         ],
       ),
@@ -622,15 +722,22 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
               f.isPositive
                   ? _statusPill('POSITIVE', _green, _greenBg)
                   : _statusPill('NEGATIVE', _red, _redBg),
-              Text(f.text.isEmpty ? '—' : f.text,
-                  style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
-                      color: AppColors.textPrimary)),
-              Text(_fmtDate(f.date),
-                  style:
-                      TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+              Text(
+                f.text.isEmpty ? '—' : f.text,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                _fmtDate(f.date),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ],
         ],
       ),
@@ -681,16 +788,21 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         children: [
           SizedBox(
             width: 120,
-            child: Text(label,
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(v,
-                style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary)),
+            child: Text(
+              v,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
           ),
         ],
       ),
@@ -723,13 +835,15 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(header,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                        color: AppColors.textSecondary,
-                      )),
+                  child: Text(
+                    header,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                 ),
                 ?action,
               ],
@@ -750,8 +864,10 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
               child: InkWell(
                 onTap: onTapRow == null ? null : () => onTapRow(ri),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 13,
+                  ),
                   decoration: const BoxDecoration(
                     border: Border(top: BorderSide(color: AppColors.divider)),
                   ),
@@ -764,7 +880,8 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
                           child: i == rows[ri].length - 1
                               ? Align(
                                   alignment: Alignment.centerLeft,
-                                  child: rows[ri][i])
+                                  child: rows[ri][i],
+                                )
                               : rows[ri][i],
                         ),
                     ],
@@ -792,11 +909,14 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
             children: [
               const Icon(Icons.add, size: 15, color: Colors.white),
               const SizedBox(width: 4),
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
             ],
           ),
         ),
@@ -808,43 +928,52 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(top,
-            style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w700,
-                height: 1.25,
-                color: AppColors.textPrimary)),
+        Text(
+          top,
+          style: const TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+            color: AppColors.textPrimary,
+          ),
+        ),
         if (bottom.trim().isNotEmpty) ...[
           const SizedBox(height: 2),
-          Text(bottom,
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          Text(
+            bottom,
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
         ],
       ],
     );
   }
 
   Widget _colLabel(String text) => Text(
-        text,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.4,
-          color: AppColors.textSecondary,
-        ),
-      );
+    text,
+    style: TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.4,
+      color: AppColors.textSecondary,
+    ),
+  );
 
   Widget _statusPill(String label, Color fg, Color bg) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.3,
-            color: fg,
-          )),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.3,
+          color: fg,
+        ),
+      ),
     );
   }
 
@@ -869,8 +998,10 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
       ),
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
       child: Center(
-        child: Text(text,
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+        child: Text(
+          text,
+          style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+        ),
       ),
     );
   }
@@ -900,10 +1031,9 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(msg),
-        backgroundColor: error ? _red : _green,
-      ));
+      ..showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: error ? _red : _green),
+      );
   }
 
   /// Runs a write [op] behind a blocking spinner, then reloads + toasts.
@@ -911,8 +1041,9 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) =>
-          const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
     );
     try {
       await op();
@@ -929,7 +1060,10 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
   }
 
   Future<void> _confirmRun(
-      String question, Future<void> Function() op, String success) async {
+    String question,
+    Future<void> Function() op,
+    String success,
+  ) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -937,11 +1071,13 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         content: Text(question),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Yes')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Yes'),
+          ),
         ],
       ),
     );
@@ -966,8 +1102,9 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                  color: AppColors.divider,
-                  borderRadius: BorderRadius.circular(2)),
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
             const SizedBox(height: 6),
             ...tiles,
@@ -978,13 +1115,19 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     );
   }
 
-  Widget _sheetTile(IconData icon, String label, VoidCallback onTap,
-      {Color? color}) {
+  Widget _sheetTile(
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    Color? color,
+  }) {
     final c = color ?? AppColors.textPrimary;
     return ListTile(
       leading: Icon(icon, color: c),
-      title: Text(label,
-          style: TextStyle(fontWeight: FontWeight.w600, color: c)),
+      title: Text(
+        label,
+        style: TextStyle(fontWeight: FontWeight.w600, color: c),
+      ),
       onTap: () {
         Navigator.of(context).pop();
         onTap();
@@ -993,21 +1136,22 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
   }
 
   List<Widget> _dialogActions(BuildContext ctx, {String save = 'Save'}) => [
-        TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel')),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-          child: Text(save, style: const TextStyle(color: Colors.white)),
-        ),
-      ];
+    TextButton(
+      onPressed: () => Navigator.pop(ctx, false),
+      child: const Text('Cancel'),
+    ),
+    ElevatedButton(
+      onPressed: () => Navigator.pop(ctx, true),
+      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+      child: Text(save, style: const TextStyle(color: Colors.white)),
+    ),
+  ];
 
   InputDecoration _dec(String label) => InputDecoration(
-        labelText: label,
-        isDense: true,
-        border: const OutlineInputBorder(),
-      );
+    labelText: label,
+    isDense: true,
+    border: const OutlineInputBorder(),
+  );
 
   Widget _monthDropdown(int value, ValueChanged<int?> onCh) =>
       DropdownButtonFormField<int>(
@@ -1035,7 +1179,12 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
   }
 
   Widget _choice(
-      String label, bool active, Color color, Color bg, VoidCallback onTap) {
+    String label,
+    bool active,
+    Color color,
+    Color bg,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -1046,35 +1195,38 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
           color: active ? bg : AppColors.fieldFill,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: active ? color : AppColors.fieldBorder,
-              width: active ? 1.6 : 1),
+            color: active ? color : AppColors.fieldBorder,
+            width: active ? 1.6 : 1,
+          ),
         ),
-        child: Text(label,
-            style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: active ? color : AppColors.textSecondary)),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: active ? color : AppColors.textSecondary,
+          ),
+        ),
       ),
     );
   }
 
   Widget _pickerTile(String label, String value, VoidCallback onTap) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: InputDecorator(
-            decoration: _dec(label),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(value,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                const Icon(Icons.arrow_drop_down, size: 20),
-              ],
-            ),
-          ),
+    padding: const EdgeInsets.only(bottom: 10),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: InputDecorator(
+        decoration: _dec(label),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+            const Icon(Icons.arrow_drop_down, size: 20),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 
   String _plain(double v) =>
       v == v.roundToDouble() ? v.toInt().toString() : v.toString();
@@ -1098,7 +1250,8 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
       final p = part.split('/');
       if (p.length == 3) {
         return DateTime.tryParse(
-            '${p[2]}-${p[1].padLeft(2, '0')}-${p[0].padLeft(2, '0')}');
+          '${p[2]}-${p[1].padLeft(2, '0')}-${p[0].padLeft(2, '0')}',
+        );
       }
     }
     return DateTime.tryParse(part);
@@ -1125,14 +1278,16 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) =>
-          const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
     );
     try {
       final bytes = await ZedgiftApi.instance.salarySlipBytes(s.id);
       final dir = await getApplicationDocumentsDirectory();
       final file = File(
-          '${dir.path}/salary_slip_${widget.employeeId}_${s.month}_${s.year}.pdf');
+        '${dir.path}/salary_slip_${widget.employeeId}_${s.month}_${s.year}.pdf',
+      );
       await file.writeAsBytes(bytes, flush: true);
       if (mounted) Navigator.of(context).pop();
       final res = await OpenFilex.open(file.path);
@@ -1152,19 +1307,32 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
 
   void _advanceActions(AdvanceRecord a) {
     _sheet([
-      _sheetTile(Icons.edit_outlined, 'Edit advance',
-          () => _advanceForm(existing: a)),
+      _sheetTile(
+        Icons.edit_outlined,
+        'Edit advance',
+        () => _advanceForm(existing: a),
+      ),
       if (!a.paid)
         _sheetTile(
-            Icons.check_circle_outline, 'Mark as paid out',
-            () => _confirmRun('Mark this advance as paid out?',
-                () => ZedgiftApi.instance.payoutAdvance(a.id), 'Advance paid out'),
-            color: _green),
+          Icons.check_circle_outline,
+          'Mark as paid out',
+          () => _confirmRun(
+            'Mark this advance as paid out?',
+            () => ZedgiftApi.instance.payoutAdvance(a.id),
+            'Advance paid out',
+          ),
+          color: _green,
+        ),
       _sheetTile(
-          Icons.delete_outline, 'Delete advance',
-          () => _confirmRun('Delete this advance?',
-              () => ZedgiftApi.instance.deleteAdvance(a.id), 'Advance deleted'),
-          color: _red),
+        Icons.delete_outline,
+        'Delete advance',
+        () => _confirmRun(
+          'Delete this advance?',
+          () => ZedgiftApi.instance.deleteAdvance(a.id),
+          'Advance deleted',
+        ),
+        color: _red,
+      ),
     ]);
   }
 
@@ -1172,8 +1340,9 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     final now = DateTime.now();
     var month = existing?.month ?? now.month;
     var year = existing?.year ?? now.year;
-    final amountCtl =
-        TextEditingController(text: existing == null ? '' : _plain(existing.amountRaw));
+    final amountCtl = TextEditingController(
+      text: existing == null ? '' : _plain(existing.amountRaw),
+    );
     final remarkCtl = TextEditingController(text: existing?.remark ?? '');
     final ok = await showDialog<bool>(
       context: context,
@@ -1185,23 +1354,33 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(children: [
-                  Expanded(
-                      child: _monthDropdown(month, (m) => setS(() => month = m!))),
-                  const SizedBox(width: 10),
-                  Expanded(
-                      child: _yearDropdown(year, (y) => setS(() => year = y!))),
-                ]),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _monthDropdown(
+                        month,
+                        (m) => setS(() => month = m!),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _yearDropdown(year, (y) => setS(() => year = y!)),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 TextField(
-                    controller: amountCtl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: _dec('Amount (₹)')),
+                  controller: amountCtl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: _dec('Amount (₹)'),
+                ),
                 const SizedBox(height: 12),
                 TextField(
-                    controller: remarkCtl,
-                    decoration: _dec('Remark (optional)')),
+                  controller: remarkCtl,
+                  decoration: _dec('Remark (optional)'),
+                ),
               ],
             ),
           ),
@@ -1221,13 +1400,16 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
                   month: month,
                   year: year,
                   amount: amount,
-                  remark: remarkCtl.text)
-              : ZedgiftApi.instance.updateAdvance(existing.id,
+                  remark: remarkCtl.text,
+                )
+              : ZedgiftApi.instance.updateAdvance(
+                  existing.id,
                   employeeId: widget.employeeId,
                   month: month,
                   year: year,
                   amount: amount,
-                  remark: remarkCtl.text),
+                  remark: remarkCtl.text,
+                ),
           existing == null ? 'Advance added' : 'Advance updated',
         );
       }
@@ -1240,28 +1422,39 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
 
   void _deductionActions(DeductionRecord d) {
     _sheet([
-      _sheetTile(Icons.edit_outlined, 'Edit deduction',
-          () => _deductionForm(existing: d)),
       _sheetTile(
-          Icons.delete_outline, 'Delete deduction',
-          () => _confirmRun('Delete this deduction?',
-              () => ZedgiftApi.instance.deleteDeduction(d.id), 'Deduction deleted'),
-          color: _red),
+        Icons.edit_outlined,
+        'Edit deduction',
+        () => _deductionForm(existing: d),
+      ),
+      _sheetTile(
+        Icons.delete_outline,
+        'Delete deduction',
+        () => _confirmRun(
+          'Delete this deduction?',
+          () => ZedgiftApi.instance.deleteDeduction(d.id),
+          'Deduction deleted',
+        ),
+        color: _red,
+      ),
     ]);
   }
 
   Future<void> _deductionForm({DeductionRecord? existing}) async {
     if (_deductionTypes.isEmpty) {
-      _toast('Deduction types are still loading. Try again in a moment.',
-          error: true);
+      _toast(
+        'Deduction types are still loading. Try again in a moment.',
+        error: true,
+      );
       return;
     }
     var typeId = existing?.typeId ?? _deductionTypes.first.id;
     if (!_deductionTypes.any((t) => t.id == typeId)) {
       typeId = _deductionTypes.first.id;
     }
-    final amountCtl =
-        TextEditingController(text: existing == null ? '' : _plain(existing.amountRaw));
+    final amountCtl = TextEditingController(
+      text: existing == null ? '' : _plain(existing.amountRaw),
+    );
     final descCtl = TextEditingController(text: existing?.description ?? '');
     final ok = await showDialog<bool>(
       context: context,
@@ -1284,14 +1477,17 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                    controller: amountCtl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: _dec('Amount (₹)')),
+                  controller: amountCtl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: _dec('Amount (₹)'),
+                ),
                 const SizedBox(height: 12),
                 TextField(
-                    controller: descCtl,
-                    decoration: _dec('Description (optional)')),
+                  controller: descCtl,
+                  decoration: _dec('Description (optional)'),
+                ),
               ],
             ),
           ),
@@ -1310,12 +1506,15 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
                   employeeId: widget.employeeId,
                   typeId: typeId,
                   amount: amount,
-                  description: descCtl.text)
-              : ZedgiftApi.instance.updateDeduction(existing.id,
+                  description: descCtl.text,
+                )
+              : ZedgiftApi.instance.updateDeduction(
+                  existing.id,
                   employeeId: widget.employeeId,
                   typeId: typeId,
                   amount: amount,
-                  description: descCtl.text),
+                  description: descCtl.text,
+                ),
           existing == null ? 'Deduction added' : 'Deduction updated',
         );
       }
@@ -1330,21 +1529,33 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     _sheet([
       if (l.status == 0) ...[
         _sheetTile(
-            Icons.check_circle_outline, 'Approve',
-            () => _confirmRun('Approve this leave?',
-                () => ZedgiftApi.instance.approveLeave(l.id, status: 1),
-                'Leave approved'),
-            color: _green),
-        _sheetTile(Icons.cancel_outlined, 'Reject', () => _rejectLeave(l),
-            color: _red),
+          Icons.check_circle_outline,
+          'Approve',
+          () => _confirmRun(
+            'Approve this leave?',
+            () => ZedgiftApi.instance.approveLeave(l.id, status: 1),
+            'Leave approved',
+          ),
+          color: _green,
+        ),
+        _sheetTile(
+          Icons.cancel_outlined,
+          'Reject',
+          () => _rejectLeave(l),
+          color: _red,
+        ),
       ],
+      _sheetTile(Icons.edit_outlined, 'Edit', () => _leaveForm(existing: l)),
       _sheetTile(
-          Icons.edit_outlined, 'Edit', () => _leaveForm(existing: l)),
-      _sheetTile(
-          Icons.delete_outline, 'Delete',
-          () => _confirmRun('Delete this leave?',
-              () => ZedgiftApi.instance.deleteLeave(l.id), 'Leave deleted'),
-          color: _red),
+        Icons.delete_outline,
+        'Delete',
+        () => _confirmRun(
+          'Delete this leave?',
+          () => ZedgiftApi.instance.deleteLeave(l.id),
+          'Leave deleted',
+        ),
+        color: _red,
+      ),
     ]);
   }
 
@@ -1355,17 +1566,22 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
       builder: (ctx) => AlertDialog(
         title: const Text('Reject leave'),
         content: TextField(
-            controller: remarkCtl,
-            maxLines: 2,
-            decoration: _dec('Reason for rejection')),
+          controller: remarkCtl,
+          maxLines: 2,
+          decoration: _dec('Reason for rejection'),
+        ),
         actions: _dialogActions(ctx, save: 'Reject'),
       ),
     );
     if (ok == true) {
       await _run(
-          () => ZedgiftApi.instance
-              .approveLeave(l.id, status: 2, remark: remarkCtl.text),
-          'Leave rejected');
+        () => ZedgiftApi.instance.approveLeave(
+          l.id,
+          status: 2,
+          remark: remarkCtl.text,
+        ),
+        'Leave rejected',
+      );
     }
     remarkCtl.dispose();
   }
@@ -1374,8 +1590,10 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     final now = DateTime.now();
     var start = _parseDmy(existing?.startDate) ?? now;
     var end = _parseDmy(existing?.endDate) ?? now;
-    var startT = _parseTime(existing?.startTime) ?? const TimeOfDay(hour: 9, minute: 0);
-    var endT = _parseTime(existing?.endTime) ?? const TimeOfDay(hour: 18, minute: 0);
+    var startT =
+        _parseTime(existing?.startTime) ?? const TimeOfDay(hour: 9, minute: 0);
+    var endT =
+        _parseTime(existing?.endTime) ?? const TimeOfDay(hour: 18, minute: 0);
     final reasonCtl = TextEditingController(text: existing?.reason ?? '');
     final ok = await showDialog<bool>(
       context: context,
@@ -1389,36 +1607,48 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
               children: [
                 _pickerTile('Start date', _fmtDmy(start), () async {
                   final d = await showDatePicker(
-                      context: ctx,
-                      initialDate: start,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2030));
+                    context: ctx,
+                    initialDate: start,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                  );
                   if (d != null) setS(() => start = d);
                 }),
                 _pickerTile('End date', _fmtDmy(end), () async {
                   final d = await showDatePicker(
-                      context: ctx,
-                      initialDate: end,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2030));
+                    context: ctx,
+                    initialDate: end,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                  );
                   if (d != null) setS(() => end = d);
                 }),
                 _pickerTile('Start time', _fmtAmPm(startT), () async {
-                  final t = await showTimePicker(context: ctx, initialTime: startT);
+                  final t = await showTimePicker(
+                    context: ctx,
+                    initialTime: startT,
+                  );
                   if (t != null) setS(() => startT = t);
                 }),
                 _pickerTile('End time', _fmtAmPm(endT), () async {
-                  final t = await showTimePicker(context: ctx, initialTime: endT);
+                  final t = await showTimePicker(
+                    context: ctx,
+                    initialTime: endT,
+                  );
                   if (t != null) setS(() => endT = t);
                 }),
                 TextField(
-                    controller: reasonCtl,
-                    maxLines: 2,
-                    decoration: _dec('Reason')),
+                  controller: reasonCtl,
+                  maxLines: 2,
+                  decoration: _dec('Reason'),
+                ),
               ],
             ),
           ),
-          actions: _dialogActions(ctx, save: existing == null ? 'Apply' : 'Save'),
+          actions: _dialogActions(
+            ctx,
+            save: existing == null ? 'Apply' : 'Save',
+          ),
         ),
       ),
     );
@@ -1439,14 +1669,17 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
                   endDate: ed,
                   startTime: st,
                   endTime: et,
-                  reason: reason)
-              : ZedgiftApi.instance.updateLeave(existing.id,
+                  reason: reason,
+                )
+              : ZedgiftApi.instance.updateLeave(
+                  existing.id,
                   employeeId: widget.employeeId,
                   startDate: sd,
                   endDate: ed,
                   startTime: st,
                   endTime: et,
-                  reason: reason),
+                  reason: reason,
+                ),
           existing == null ? 'Leave applied' : 'Leave updated',
         );
       }
@@ -1458,13 +1691,21 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
 
   void _feedbackActions(FeedbackRecord f) {
     _sheet([
-      _sheetTile(Icons.edit_outlined, 'Edit feedback',
-          () => _feedbackForm(existing: f)),
       _sheetTile(
-          Icons.delete_outline, 'Delete feedback',
-          () => _confirmRun('Delete this feedback?',
-              () => ZedgiftApi.instance.deleteFeedback(f.id), 'Feedback deleted'),
-          color: _red),
+        Icons.edit_outlined,
+        'Edit feedback',
+        () => _feedbackForm(existing: f),
+      ),
+      _sheetTile(
+        Icons.delete_outline,
+        'Delete feedback',
+        () => _confirmRun(
+          'Delete this feedback?',
+          () => ZedgiftApi.instance.deleteFeedback(f.id),
+          'Feedback deleted',
+        ),
+        color: _red,
+      ),
     ]);
   }
 
@@ -1481,20 +1722,35 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(children: [
-                  Expanded(
-                      child: _choice('Positive', type == 1, _green, _greenBg,
-                          () => setS(() => type = 1))),
-                  const SizedBox(width: 10),
-                  Expanded(
-                      child: _choice('Negative', type == 2, _red, _redBg,
-                          () => setS(() => type = 2))),
-                ]),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _choice(
+                        'Positive',
+                        type == 1,
+                        _green,
+                        _greenBg,
+                        () => setS(() => type = 1),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _choice(
+                        'Negative',
+                        type == 2,
+                        _red,
+                        _redBg,
+                        () => setS(() => type = 2),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 TextField(
-                    controller: textCtl,
-                    maxLines: 3,
-                    decoration: _dec('Feedback')),
+                  controller: textCtl,
+                  maxLines: 3,
+                  decoration: _dec('Feedback'),
+                ),
               ],
             ),
           ),
@@ -1510,9 +1766,16 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         await _run(
           () => existing == null
               ? ZedgiftApi.instance.createFeedback(
-                  employeeId: widget.employeeId, type: type, text: text)
-              : ZedgiftApi.instance.updateFeedback(existing.id,
-                  employeeId: widget.employeeId, type: type, text: text),
+                  employeeId: widget.employeeId,
+                  type: type,
+                  text: text,
+                )
+              : ZedgiftApi.instance.updateFeedback(
+                  existing.id,
+                  employeeId: widget.employeeId,
+                  type: type,
+                  text: text,
+                ),
           existing == null ? 'Feedback added' : 'Feedback updated',
         );
       }

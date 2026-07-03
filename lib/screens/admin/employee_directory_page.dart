@@ -9,7 +9,6 @@ import '../../widgets/employee_picker_sheet.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/user_avatar.dart';
 import 'employee_detail_page.dart';
-import 'register_employee_page.dart';
 
 class EmployeeDirectoryPage extends StatefulWidget {
   const EmployeeDirectoryPage({super.key});
@@ -19,7 +18,7 @@ class EmployeeDirectoryPage extends StatefulWidget {
 }
 
 class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
-  String _query = '';
+  final String _query = '';
   final Set<String> _depts = {}; // empty = all departments
   final Set<String> _statuses = {}; // subset of {active, inactive}; empty = all
 
@@ -80,28 +79,6 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffold,
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.4),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: FloatingActionButton(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-                builder: (_) => const RegisterEmployeePage()),
-          ),
-          backgroundColor: AppColors.primary,
-          elevation: 0,
-          shape: const CircleBorder(),
-          child: const Icon(Icons.person_add_alt_1, color: Colors.white),
-        ),
-      ),
       bottomNavigationBar: AdminBottomNav(
         currentIndex: 0,
         onTap: (i) => goToAdminTab(context, i),
@@ -111,6 +88,7 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
         child: Column(
           children: [
             _appBar(),
+            _titleRow(),
             _searchBar(),
             if (!_loading && _error == null) ...[
               const SizedBox(height: 10),
@@ -149,6 +127,24 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
 
   Widget _appBar() {
     return const AppHeader(leadingIcon: Icons.arrow_back);
+  }
+
+  /// Page title — brand red, left-aligned (same as Salary / Loan / Advance).
+  Widget _titleRow() {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(20, 10, 20, 2),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Employees',
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            color: AppColors.primary,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _searchBar() {
@@ -470,7 +466,7 @@ class _EmployeeCard extends StatelessWidget {
                     Text(
                       employee.name.isEmpty ? 'Unnamed' : employee.name,
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
                       ),
