@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/api_models.dart';
 import '../services/zedgift_api.dart';
 import '../theme/app_theme.dart';
+import '../widgets/employee_picker_sheet.dart';
+import '../widgets/search_field.dart';
 
 // ---- Date / time formatting helpers (shared) -----------------------------
 
@@ -132,20 +134,12 @@ class _LeaveFormPageState extends State<LeaveFormPage> {
   }
 
   Future<void> _pickEmployee() async {
-    final picked = await showModalBottomSheet<EmployeeListItem>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _EmployeePickerSheet(
-        employees: _employees,
-        loading: _loadingEmployees,
-        error: _employeesError,
-        onRetry: _loadEmployees,
-      ),
-    );
-    if (picked != null) {
+    if (_employeesError != null) {
+      _loadEmployees(); // retry, the bar shows "Loading employees…"
+      return;
+    }
+    final picked = await pickEmployee(context, _employees);
+    if (picked != null && mounted) {
       setState(() {
         _selectedEmployeeId = picked.id;
         _selectedEmployeeName = picked.name;
@@ -317,12 +311,26 @@ class _LeaveFormPageState extends State<LeaveFormPage> {
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
-                hintText: 'Reason for the leave',
+                hintText:
+                    'Write the reason for this leave...\ne.g. Out of station, medical, family function',
+                hintMaxLines: 3,
+                hintStyle: const TextStyle(
+                    fontSize: 13.5, color: AppColors.textMuted, height: 1.5),
                 filled: true,
                 fillColor: AppColors.fieldFill,
+                contentPadding: const EdgeInsets.all(14),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+                  borderSide: const BorderSide(color: AppColors.fieldBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.fieldBorder),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: AppColors.primary, width: 1.4),
                 ),
               ),
             ),
@@ -398,42 +406,16 @@ class _LeaveFormPageState extends State<LeaveFormPage> {
     }
 
     final hasSelection = _selectedEmployeeId != null;
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: _loadingEmployees ? null : _pickEmployee,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-        decoration: BoxDecoration(
-          color: AppColors.fieldFill,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.fieldBorder),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.person_search_outlined,
-                color: AppColors.textMuted),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                _loadingEmployees
-                    ? 'Loading employees…'
-                    : hasSelection
-                        ? _selectedEmployeeName
-                        : 'Select your name',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: hasSelection ? FontWeight.w600 : FontWeight.w400,
-                  color: hasSelection
-                      ? AppColors.textPrimary
-                      : AppColors.textSecondary,
-                ),
-              ),
-            ),
-            const Icon(Icons.keyboard_arrow_down,
-                color: AppColors.textMuted),
-          ],
-        ),
-      ),
+    // Shared search pill + picker drawer — identical to the Employees page.
+    return SearchField(
+      hint: _loadingEmployees
+          ? 'Loading employees…'
+          : _employeesError != null
+              ? '$_employeesError Tap to retry.'
+              : hasSelection
+                  ? _selectedEmployeeName
+                  : 'Search employee name or ID...',
+      onTap: _loadingEmployees ? () {} : _pickEmployee,
     );
   }
 
@@ -480,134 +462,3 @@ class _LeaveFormPageState extends State<LeaveFormPage> {
   }
 }
 
-// ---- Employee picker bottom sheet ----------------------------------------
-
-class _EmployeePickerSheet extends StatefulWidget {
-  const _EmployeePickerSheet({
-    required this.employees,
-    required this.loading,
-    required this.error,
-    required this.onRetry,
-  });
-
-  final List<EmployeeListItem> employees;
-  final bool loading;
-  final String? error;
-  final VoidCallback onRetry;
-
-  @override
-  State<_EmployeePickerSheet> createState() => _EmployeePickerSheetState();
-}
-
-class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
-  String _query = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final q = _query.trim().toLowerCase();
-    final filtered = q.isEmpty
-        ? widget.employees
-        : widget.employees
-            .where((e) =>
-                e.name.toLowerCase().contains(q) ||
-                e.customId.toString().contains(q))
-            .toList();
-
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.75,
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.fieldBorder,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: TextField(
-                autofocus: true,
-                onChanged: (v) => setState(() => _query = v),
-                decoration: InputDecoration(
-                  hintText: 'Search by name or ID',
-                  prefixIcon: const Icon(Icons.search),
-                  filled: true,
-                  fillColor: AppColors.fieldFill,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ),
-            Expanded(child: _body(filtered)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _body(List<EmployeeListItem> filtered) {
-    if (widget.loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
-    }
-    if (widget.error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 40, color: AppColors.textMuted),
-            const SizedBox(height: 10),
-            Text(widget.error!,
-                style: const TextStyle(color: AppColors.textSecondary)),
-            const SizedBox(height: 12),
-            OutlinedButton(
-                onPressed: widget.onRetry, child: const Text('Retry')),
-          ],
-        ),
-      );
-    }
-    if (filtered.isEmpty) {
-      return const Center(
-        child: Text('No employees found.',
-            style: TextStyle(color: AppColors.textSecondary)),
-      );
-    }
-    return ListView.separated(
-      itemCount: filtered.length,
-      separatorBuilder: (_, _) =>
-          const Divider(height: 1, color: AppColors.divider),
-      itemBuilder: (_, i) {
-        final e = filtered[i];
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-            child: Text(
-              e.name.isEmpty ? '?' : e.name[0].toUpperCase(),
-              style: const TextStyle(
-                  color: AppColors.primary, fontWeight: FontWeight.w700),
-            ),
-          ),
-          title: Text(e.name,
-              style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text(
-            [
-              if (e.customId != 0) 'ID ${e.customId}',
-              if (e.departmentName.isNotEmpty) e.departmentName,
-            ].join(' • '),
-          ),
-          onTap: () => Navigator.of(context).pop(e),
-        );
-      },
-    );
-  }
-}

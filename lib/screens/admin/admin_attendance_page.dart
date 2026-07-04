@@ -494,80 +494,80 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
     return Row(
       children: [
         Expanded(
-          child: _statCard(Icons.groups_2_rounded, 'Total Present', '$present',
-              AttColors.green),
+          child: _statCard(
+              Icons.groups_2_rounded, 'Present', '$present', AttColors.green),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 9),
+        Expanded(
+          child:
+              _statCard(Icons.login_rounded, 'In', '$inCount', AttColors.blue),
+        ),
+        const SizedBox(width: 9),
         Expanded(
           child: _statCard(
-              Icons.login_rounded, 'Total In', '$inCount', AttColors.blue),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _statCard(
-              Icons.logout_rounded, 'Total Out', '$outCount', AttColors.orange),
+              Icons.logout_rounded, 'Out', '$outCount', AttColors.orange),
         ),
       ],
     );
   }
 
+  /// Same card UI as the 4 stat cards on the Home page — tinted icon tile on
+  /// top, then the number and the small label.
   Widget _statCard(IconData icon, String label, String value, Color accent) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
           Container(
             width: 38,
             height: 38,
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: accent, size: 20),
+            child: Icon(icon, color: accent, size: 19),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: accent,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
 }
 
 /// The exact palette from the attendance design spec.

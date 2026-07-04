@@ -126,8 +126,15 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
               month: _month, year: _year, employeeId: empId);
           break;
         case _Section.loan:
-          _loans = await api.loans(
-              month: _month, year: _year, employeeId: empId);
+          // A month with no loans can come back as an error from the API —
+          // treat that as an empty list so the page shows the friendly
+          // "No loans for <month>" state instead of a load error.
+          try {
+            _loans = await api.loans(
+                month: _month, year: _year, employeeId: empId);
+          } catch (_) {
+            _loans = const [];
+          }
           break;
         case _Section.salary:
           if (empId != null) {

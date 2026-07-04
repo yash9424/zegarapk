@@ -115,12 +115,17 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.scaffold,
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        onPressed: _newLeave,
-        icon: const Icon(Icons.add),
-        label: const Text('New Leave'),
+      floatingActionButton: SizedBox(
+        height: 42,
+        child: FloatingActionButton.extended(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          onPressed: _newLeave,
+          extendedPadding: const EdgeInsets.symmetric(horizontal: 14),
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('New Leave Request',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        ),
       ),
       bottomNavigationBar: AdminBottomNav(
         currentIndex: 0,
@@ -466,9 +471,11 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
     );
   }
 
+  /// Same chip sizing as the Employee Directory filters (height 40,
+  /// radius 20, 13px label, 16px icon).
   Widget _filterChips() {
     return SizedBox(
-      height: 46,
+      height: 40,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -477,43 +484,40 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
         itemBuilder: (context, i) {
           final (label, status, icon, accent) = _chips[i];
           final selected = _filter == status;
-          return GestureDetector(
-            onTap: () => setState(() => _filter = status),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primary : AppColors.surface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: selected ? AppColors.primary : AppColors.fieldBorder,
-                ),
-                boxShadow: selected
-                    ? [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.30),
-                          blurRadius: 12,
-                          offset: const Offset(0, 5),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon,
-                      size: 17,
-                      color: selected ? Colors.white : accent),
-                  const SizedBox(width: 7),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: selected ? Colors.white : AppColors.textPrimary,
-                    ),
+          return Material(
+            color: selected ? AppColors.primary : AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => setState(() => _filter = status),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color:
+                        selected ? AppColors.primary : AppColors.fieldBorder,
                   ),
-                ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon,
+                        size: 16, color: selected ? Colors.white : accent),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: selected
+                            ? Colors.white
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -984,37 +988,48 @@ class _LeaveCardState extends State<_LeaveCard> {
     );
   }
 
+  /// Employee ID + department as tinted badges — same look as the badges on
+  /// the Employee Directory cards.
   Widget _idLine(LeaveRequest r) {
     return Row(
       children: [
-        const Icon(Icons.apartment_rounded,
-            size: 15, color: AppColors.textMuted),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            r.department.isEmpty ? '—' : r.department,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary),
+        _miniBadge(Icons.badge_outlined, 'ID ${r.employeeId}'),
+        if (r.department.isNotEmpty) ...[
+          const SizedBox(width: 6),
+          Flexible(
+            child: _miniBadge(Icons.apartment, r.department, muted: true),
           ),
-        ),
-        const SizedBox(width: 8),
-        const Text('•', style: TextStyle(color: AppColors.textMuted)),
-        const SizedBox(width: 8),
-        const Icon(Icons.badge_outlined,
-            size: 15, color: AppColors.textMuted),
-        const SizedBox(width: 6),
-        Text(
-          'ID: ${r.employeeId}',
-          style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary),
-        ),
+        ],
       ],
+    );
+  }
+
+  Widget _miniBadge(IconData icon, String text, {bool muted = false}) {
+    final color = muted ? AppColors.textSecondary : AppColors.primary;
+    final bg = muted ? const Color(0xFFEDEFF4) : AppColors.softRedTint;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
