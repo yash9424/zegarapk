@@ -214,6 +214,21 @@ class ZedgiftApi {
     return _list(data).map(AdvanceRecord.fromJson).toList();
   }
 
+  /// Create a loan (`POST /loans/`) — amount plus the per-month EMI.
+  Future<void> createLoan({
+    required int employeeId,
+    required String amount,
+    required String perMonthAmount,
+    String? remark,
+  }) async {
+    await _c.postForm('loans', {
+      'employee_id': employeeId.toString(),
+      'amount': amount,
+      'per_month_amount': perMonthAmount,
+      if (remark != null && remark.trim().isNotEmpty) 'remark': remark.trim(),
+    });
+  }
+
   /// Company-wide loan list (`GET /loans/`). Each record carries its employee.
   Future<List<LoanRecord>> loans(
       {int? month, int? year, int? employeeId}) async {

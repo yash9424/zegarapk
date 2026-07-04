@@ -54,6 +54,30 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
   late int _month;
   late int _year;
 
+  // Status chip filter (like the Leaves page). null = show all.
+  String? _statusFilter;
+
+  static const _greenChip = Color(0xFF2BB673);
+  static const _orangeChip = Color(0xFFE8923B);
+
+  /// Chips per section, matching how the API reports status:
+  /// advances → payout Pending/Paid, loans → Active/Closed.
+  List<(String, String?, IconData, Color)> get _statusChips =>
+      switch (_section) {
+        _Section.advance => const [
+            ('All Advances', null, Icons.description_rounded,
+                AppColors.primary),
+            ('Pending', 'pending', Icons.access_time_rounded, _orangeChip),
+            ('Paid', 'paid', Icons.check_circle_rounded, _greenChip),
+          ],
+        _Section.loan => const [
+            ('All Loans', null, Icons.description_rounded, AppColors.primary),
+            ('Active', 'active', Icons.check_circle_rounded, _greenChip),
+            ('Closed', 'closed', Icons.cancel_rounded, _orangeChip),
+          ],
+        _Section.salary => const [],
+      };
+
   _Section get _section => switch (widget.tabIndex) {
         1 => _Section.salary,
         4 => _Section.loan,
@@ -499,7 +523,11 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
                   _titleRow(),
                   const SizedBox(height: 16),
                   _searchBar(),
-                  const SizedBox(height: 20),
+                  if (_statusChips.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _statusChipsRow(),
+                  ],
+                  const SizedBox(height: 18),
                   _recordsArea(),
                 ],
               ),
@@ -700,6 +728,102 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
     );
   }
 
+  /// Status filter chips — same look/size as the Leaves & Directory filters.
+  Widget _statusChipsRow() {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _statusChips.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 10),
+        itemBuilder: (context, i) {
+          final (label, value, icon, accent) = _statusChips[i];
+          final selected = _statusFilter == value;
+          return Material(
+            color: selected ? AppColors.primary : AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => setState(() => _statusFilter = value),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color:
+                        selected ? AppColors.primary : AppColors.fieldBorder,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon,
+                        size: 16, color: selected ? Colors.white : accent),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: selected
+                            ? Colors.white
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ---- CRUD: Loan -----------------------------------------------------------
+
+  Future<void> _loanForm() async {
+    final empId = _selected?.id;
+    if (empId == null) {
+      _snack('Search and select an employee first.');
+      return;
+    }
+    final amountCtl = TextEditingController();
+    final emiCtl = TextEditingController();
+    final remarkCtl = TextEditingController();
+
+    final ok = await _formSheet(
+      title: 'Add Loan',
+      builder: (setSheet) => [
+        _formField(amountCtl, 'Loan amount (₹)', number: true),
+        const SizedBox(height: 14),
+        _formField(emiCtl, 'EMI per month (₹)', number: true),
+        const SizedBox(height: 14),
+        _formField(remarkCtl, 'Remark (optional)'),
+      ],
+    );
+    if (ok != true) return;
+    final amount = amountCtl.text.trim();
+    final emi = emiCtl.text.trim();
+    if (amount.isEmpty || emi.isEmpty) {
+      _snack('Enter the loan amount and EMI per month.');
+      return;
+    }
+    try {
+      await ZedgiftApi.instance.createLoan(
+        employeeId: empId,
+        amount: amount,
+        perMonthAmount: emi,
+        remark: remarkCtl.text,
+      );
+      _snack('Loan added.');
+      _loadRecords();
+    } catch (_) {
+      _snack('Could not save. Please try again.');
+    }
+  }
+
   // ---- Records (inline, mirrors the profile tab) ---------------------------
 
   Widget _recordsArea() {
@@ -729,9 +853,11 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
                   ),
                 ),
               )
-            else if (_section == _Section.advance)
+            else
               GestureDetector(
-                onTap: _advanceForm,
+                onTap: () => _section == _Section.advance
+                    ? _advanceForm()
+                    : _loanForm(),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -774,11 +900,16 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
   List<Widget> _rows() {
     switch (_section) {
       case _Section.advance:
-        if (_adv.isEmpty) {
+        final advs = _statusFilter == null
+            ? _adv
+            : _adv
+                .where((a) => _statusFilter == 'paid' ? a.paid : !a.paid)
+                .toList();
+        if (advs.isEmpty) {
           return [_empty('No advances for ${_mName(_month)} $_year.')];
         }
         return [
-          for (final a in _adv)
+          for (final a in advs)
             _recordCard(
               icon: Icons.event_rounded,
               title: a.employeeName.isNotEmpty
@@ -796,11 +927,16 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
             ),
         ];
       case _Section.loan:
-        if (_loans.isEmpty) {
+        final loans = _statusFilter == null
+            ? _loans
+            : _loans
+                .where((l) => l.status.toLowerCase() == _statusFilter)
+                .toList();
+        if (loans.isEmpty) {
           return [_empty('No loans for ${_mName(_month)} $_year.')];
         }
         return [
-          for (final l in _loans)
+          for (final l in loans)
             _recordCard(
               icon: Icons.account_balance_rounded,
               title: l.employeeName.isNotEmpty ? l.employeeName : 'Loan',
