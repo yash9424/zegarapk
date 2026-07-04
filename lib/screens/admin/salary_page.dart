@@ -170,15 +170,31 @@ class _SalaryPageState extends State<SalaryPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Text(
-          'Salary',
-          style: TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w800,
-            color: AppColors.primary,
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Salary',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
+                  height: 1.15,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                'Manage salary and payslips',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 11.5, color: AppColors.textSecondary),
+              ),
+            ],
           ),
         ),
-        const Spacer(),
+        const SizedBox(width: 10),
         _filterPill(
           label: _monthShort[_month - 1],
           onTap: _pickMonth,

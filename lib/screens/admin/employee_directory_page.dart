@@ -129,19 +129,32 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
     return const AppHeader(leadingIcon: Icons.arrow_back);
   }
 
-  /// Page title — brand red, left-aligned (same as Salary / Loan / Advance).
+  /// Page heading styled like the Home greeting — red 19px title with a small
+  /// grey subtext below it.
   Widget _titleRow() {
     return const Padding(
       padding: EdgeInsets.fromLTRB(20, 10, 20, 2),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Text(
-          'Employees',
-          style: TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w800,
-            color: AppColors.primary,
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Employees',
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary,
+                height: 1.15,
+              ),
+            ),
+            SizedBox(height: 2),
+            Text(
+              'Manage employee information',
+              style:
+                  TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+            ),
+          ],
         ),
       ),
     );

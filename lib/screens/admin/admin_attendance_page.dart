@@ -360,16 +360,33 @@ class _AdminAttendancePageState extends State<AdminAttendancePage> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text(
-            'Attendance',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: AppColors.primary,
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Attendance',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                    height: 1.15,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Track and manage attendance',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 11.5, color: AppColors.textSecondary),
+                ),
+              ],
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: 10),
           _filterPill(
               label: _monthShortNames[_date.month - 1], onTap: _pickMonthSheet),
           const SizedBox(width: 8),

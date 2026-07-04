@@ -507,20 +507,37 @@ class _SelectEmployeePageState extends State<SelectEmployeePage> {
     return const AppHeader(leadingIcon: Icons.arrow_back);
   }
 
-  /// Title (brand red) on the left + Month / Year filter pills on the right —
-  /// same layout as the Salary page.
+  /// Page heading styled like the Home greeting (red 19px title + small grey
+  /// subtext) with the Month / Year filter pills on the right.
   Widget _titleRow() {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          widget.title,
-          style: const TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w800,
-            color: AppColors.primary,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.title,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
+                  height: 1.15,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                widget.subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 11.5, color: AppColors.textSecondary),
+              ),
+            ],
           ),
         ),
-        const Spacer(),
+        const SizedBox(width: 10),
         _filterPill(label: _months[_month - 1], onTap: _pickMonth),
         const SizedBox(width: 8),
         _filterPill(label: '$_year', onTap: _pickYear),

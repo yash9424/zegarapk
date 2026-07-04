@@ -5,6 +5,7 @@ import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/app_header.dart';
+import '../../widgets/search_field.dart';
 import '../leave_form_page.dart';
 
 class LeaveRequestsPage extends StatefulWidget {
@@ -21,10 +22,30 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
   String? _error;
   List<LeaveRequest> _items = const [];
 
+  // Search + Month/Year filters (same as the other list pages).
+  final _searchCtl = TextEditingController();
+  String _q = '';
+  late int _month;
+  late int _year;
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _month = now.month;
+    _year = now.year;
     _load();
+  }
+
+  @override
+  void dispose() {
+    _searchCtl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -57,9 +78,31 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
     ('Approved', LeaveStatus.approved, Icons.check_circle_rounded, _green),
   ];
 
-  List<LeaveRequest> get _filtered => _items
-      .where((r) => _filter == null || r.status == _filter)
-      .toList();
+  /// Status chip + search text + month/year (a leave matches when its date
+  /// range overlaps the selected month).
+  List<LeaveRequest> get _filtered {
+    final q = _q.trim().toLowerCase();
+    return _items.where((r) {
+      if (_filter != null && r.status != _filter) return false;
+      if (!_inSelectedMonth(r)) return false;
+      if (q.isEmpty) return true;
+      return r.name.toLowerCase().contains(q) ||
+          r.employeeId.toLowerCase().contains(q) ||
+          r.department.toLowerCase().contains(q) ||
+          r.role.toLowerCase().contains(q);
+    }).toList();
+  }
+
+  bool _inSelectedMonth(LeaveRequest r) {
+    final a = parseApiDateTime(r.rawStart);
+    final b = parseApiDateTime(r.rawEnd);
+    if (a == null && b == null) return true; // unparseable — never hide it
+    final start = a ?? b!;
+    final end = b ?? a!;
+    final mStart = DateTime(_year, _month, 1);
+    final mEnd = DateTime(_year, _month + 1, 0, 23, 59, 59);
+    return !start.isAfter(mEnd) && !end.isBefore(mStart);
+  }
 
   Future<void> _newLeave() async {
     final created = await Navigator.of(context).push<bool>(
@@ -88,7 +131,9 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
         child: Column(
           children: [
             _appBar(),
-            const SizedBox(height: 8),
+            _titleRow(),
+            _searchBar(),
+            const SizedBox(height: 10),
             _filterChips(),
             const SizedBox(height: 8),
             Expanded(child: _listArea()),
@@ -251,6 +296,174 @@ class _LeaveRequestsPageState extends State<LeaveRequestsPage> {
 
   Widget _appBar() {
     return const AppHeader(leadingIcon: Icons.arrow_back);
+  }
+
+  /// Page heading styled like the Home greeting (red 19px title + small grey
+  /// subtext) with the Month / Year filter pills on the right.
+  Widget _titleRow() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Leaves',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                    height: 1.15,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Manage leave requests and approvals',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 11.5, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          _filterPill(label: _months[_month - 1], onTap: _pickMonth),
+          const SizedBox(width: 8),
+          _filterPill(label: '$_year', onTap: _pickYear),
+        ],
+      ),
+    );
+  }
+
+  Widget _searchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: SearchField(
+        controller: _searchCtl,
+        hint: 'Search employee name or ID...',
+        hasText: _q.isNotEmpty,
+        onChanged: (v) => setState(() => _q = v),
+        onClear: () {
+          _searchCtl.clear();
+          setState(() => _q = '');
+        },
+      ),
+    );
+  }
+
+  Widget _filterPill({required String label, required VoidCallback onTap}) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.fieldBorder),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  )),
+              const SizedBox(width: 4),
+              const Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 18, color: AppColors.textSecondary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickMonth() async {
+    const full = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    final picked = await _pickFromSheet<int>(
+      title: 'Select Month',
+      items: [for (var m = 1; m <= 12; m++) (m, full[m - 1])],
+      selected: _month,
+    );
+    if (picked != null && picked != _month) {
+      setState(() => _month = picked);
+    }
+  }
+
+  Future<void> _pickYear() async {
+    final now = DateTime.now();
+    final years = [for (var y = now.year - 4; y <= now.year + 1; y++) y];
+    final picked = await _pickFromSheet<int>(
+      title: 'Select Year',
+      items: [for (final y in years) (y, '$y')],
+      selected: _year,
+    );
+    if (picked != null && picked != _year) {
+      setState(() => _year = picked);
+    }
+  }
+
+  Future<T?> _pickFromSheet<T>({
+    required String title,
+    required List<(T, String)> items,
+    required T selected,
+  }) {
+    return showModalBottomSheet<T>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final it in items)
+                    ListTile(
+                      title: Text(it.$2,
+                          style: TextStyle(
+                            fontWeight: it.$1 == selected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: it.$1 == selected
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
+                          )),
+                      trailing: it.$1 == selected
+                          ? const Icon(Icons.check_rounded,
+                              color: AppColors.primary, size: 20)
+                          : null,
+                      onTap: () => Navigator.pop(ctx, it.$1),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _filterChips() {
