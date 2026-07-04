@@ -118,7 +118,7 @@ class _AdminHomePageState extends State<AdminHomePage>
                   _greeting(),
                   const SizedBox(height: 14),
                   _statsRow(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   // Grid fills the remaining vertical space.
                   Expanded(child: _menuGrid(context)),
                 ],
@@ -331,13 +331,13 @@ class _AdminHomePageState extends State<AdminHomePage>
               builder: (_) => const SalaryPage()))),
     ];
     // 2-column grid, equal-height pairs, with a staggered entrance per row.
-    // Cards hug their content; leftover screen space goes BETWEEN the rows
-    // (spaceEvenly), not inside the boxes.
+    // Fixed 14px gaps between rows; the grid starts right under the stat
+    // cards so there is no stray gap between them.
     final rowCount = (items.length / 2).ceil();
     return Column(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        for (var r = 0; r < rowCount; r++)
+        for (var r = 0; r < rowCount; r++) ...[
           _introWrap(
             r,
             rowCount,
@@ -356,6 +356,8 @@ class _AdminHomePageState extends State<AdminHomePage>
               ),
             ),
           ),
+          if (r != rowCount - 1) const SizedBox(height: 14),
+        ],
       ],
     );
   }
