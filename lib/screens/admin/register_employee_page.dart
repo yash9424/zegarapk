@@ -105,6 +105,7 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
   Widget _captureArea() {
     return InlineFaceEnroll(
       key: _camKey,
+      size: 205, // compact enough for the whole page to fit one screen
       showSwitchButton: false, // the title row hosts the flip button
       onCaptured: (embeddings, imagePath) => setState(() {
         _embeddings = embeddings;
@@ -167,30 +168,29 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
           _appBar(),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
               children: [
-                const SizedBox(height: 4),
-                // Title + camera flip button, side by side, centred as a pair.
+                // Title on the left, camera flip button on the right.
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
                       'Register Face',
                       style: TextStyle(
-                        fontSize: 26,
+                        fontSize: 19,
                         fontWeight: FontWeight.w800,
                         color: AppColors.primary,
+                        height: 1.15,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const Spacer(),
                     _swapCameraButton(),
                   ],
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 10),
                 Center(child: _captureArea()),
-                const SizedBox(height: 24),
+                const SizedBox(height: 14),
                 _formCard(),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 _registerButton(),
               ],
             ),
@@ -212,30 +212,29 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
     );
   }
 
-  /// Camera flip (front ↔ back) — styled like the app's tinted icon tiles.
+  /// Camera flip (front ↔ back) — brand-red tile with a white icon.
   Widget _swapCameraButton() {
     return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(12),
+      color: AppColors.primary,
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         onTap: () => _camKey.currentState?.switchCamera(),
         child: Container(
-          width: 42,
-          height: 42,
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.fieldBorder),
+            borderRadius: BorderRadius.circular(10),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: AppColors.primary.withValues(alpha: 0.30),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
           child: const Icon(Icons.cameraswitch_rounded,
-              color: AppColors.primary, size: 21),
+              color: Colors.white, size: 17),
         ),
       ),
     );
@@ -265,14 +264,14 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
           ),
         ],
       ),
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _label('Select Employee'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           _employeePicker(),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           // Employee ID + Department side by side — both read-only.
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,7 +313,7 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
       children: [
         SizedBox(
           width: double.infinity,
-          height: 54,
+          height: 48,
           child: ElevatedButton(
             onPressed: ready ? _register : null,
             style: ElevatedButton.styleFrom(
@@ -375,7 +374,7 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label(label),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         _readField(value, hint),
       ],
     );
@@ -386,7 +385,7 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
     final empty = value.trim().isEmpty;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 14),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
       decoration: _fieldBox(),
       child: Text(
         empty ? hint : value,
@@ -405,7 +404,7 @@ class _RegisterEmployeePageState extends State<RegisterEmployeePage> {
       borderRadius: BorderRadius.circular(12),
       onTap: _loading ? null : _pickEmployee,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
         decoration: _fieldBox(),
         child: Row(
           children: [
