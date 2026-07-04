@@ -95,6 +95,7 @@ class EmployeeListItem {
     required this.designationName,
     required this.typeName,
     required this.active,
+    required this.statusCode,
   });
 
   final int id;
@@ -106,6 +107,10 @@ class EmployeeListItem {
   final String designationName;
   final String typeName;
   final bool active; // user.status == 1
+
+  /// Raw user.status: 1 Active, 2 Inactive, 3 Deleted, 4 Blocked,
+  /// 5 Going To Native.
+  final int statusCode;
 
   factory EmployeeListItem.fromJson(Map<String, dynamic> j) {
     final user = (j['user'] as Map?)?.cast<String, dynamic>();
@@ -122,6 +127,7 @@ class EmployeeListItem {
       designationName: desig == null ? '' : _str(desig['name']).trim(),
       typeName: type == null ? '' : _str(type['name']).trim(),
       active: user != null && _int(user['status']) == 1,
+      statusCode: user == null ? 0 : _int(user['status']),
     );
   }
 }

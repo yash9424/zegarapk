@@ -541,6 +541,18 @@ class _EmployeeCard extends StatelessWidget {
     );
   }
 
+  /// Status dot colour by the raw API status:
+  /// 1 Active → green, 2 Inactive → grey, 3 Deleted → red,
+  /// 4 Blocked / 5 Going To Native → orange.
+  static Color _statusColor(int code) => switch (code) {
+        1 => const Color(0xFF2BB673),
+        2 => AppColors.textMuted,
+        3 => const Color(0xFFD64545),
+        4 => const Color(0xFFE8923B),
+        5 => const Color(0xFFE8923B),
+        _ => AppColors.textMuted,
+      };
+
   Widget _avatarWithStatus() {
     return SizedBox(
       width: 50,
@@ -555,9 +567,7 @@ class _EmployeeCard extends StatelessWidget {
               width: 14,
               height: 14,
               decoration: BoxDecoration(
-                color: employee.active
-                    ? const Color(0xFF2BB673)
-                    : AppColors.textMuted,
+                color: _statusColor(employee.statusCode),
                 shape: BoxShape.circle,
                 border: Border.all(color: AppColors.surface, width: 2.5),
               ),
