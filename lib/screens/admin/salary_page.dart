@@ -73,9 +73,7 @@ class _SalaryPageState extends State<SalaryPage> {
           ..addAll(list.where((s) => s.approved).map((s) => s.id));
         _held.clear();
         _selectedId = null; // reset the search filter on (re)load
-        _expanded
-          ..clear()
-          ..addAll(list.take(1).map((s) => s.id)); // first card open
+        _expanded.clear(); // all cards start collapsed — plain list view
         _loading = false;
       });
     } catch (_) {
@@ -397,6 +395,36 @@ class _SalaryPageState extends State<SalaryPage> {
 
   // ---- Salary card ---------------------------------------------------------
 
+  /// Tinted ID / department badge — same look as the Employee Directory cards.
+  Widget _miniBadge(IconData icon, String text, {bool muted = false}) {
+    final color = muted ? AppColors.textSecondary : AppColors.primary;
+    final bg = muted ? const Color(0xFFEDEFF4) : AppColors.softRedTint;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _salaryCard(SalaryListItem s) {
     final open = _expanded.contains(s.id);
     return Container(
@@ -425,18 +453,12 @@ class _SalaryPageState extends State<SalaryPage> {
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppColors.softRedTint,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.badge_outlined,
-                        color: AppColors.primary, size: 22),
-                  ),
+                  // Initials avatar — same as the Employee Directory cards.
+                  UserAvatar(
+                      name: s.name.isEmpty ? '#${s.customId}' : s.name,
+                      radius: 23),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -444,33 +466,28 @@ class _SalaryPageState extends State<SalaryPage> {
                       children: [
                         Text(
                           s.name.isEmpty ? 'Employee #${s.customId}' : s.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          'ID: ${s.code}'
-                          '${s.departmentName.isEmpty ? '' : ' • ${s.departmentName.toUpperCase()}'}',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
-                          ),
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            _miniBadge(Icons.badge_outlined, 'ID ${s.code}'),
+                            if (s.departmentName.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: _miniBadge(
+                                    Icons.apartment, s.departmentName,
+                                    muted: true),
+                              ),
+                            ],
+                          ],
                         ),
-                        if (s.designationName.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            s.designationName,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
