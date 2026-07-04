@@ -5,7 +5,6 @@ import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/app_header.dart';
-import '../../widgets/employee_picker_sheet.dart';
 import '../../widgets/search_field.dart';
 import '../../widgets/user_avatar.dart';
 import 'employee_detail_page.dart';
@@ -18,7 +17,9 @@ class EmployeeDirectoryPage extends StatefulWidget {
 }
 
 class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
-  final String _query = '';
+  // Inline live search — typing filters the list below directly.
+  final _searchCtl = TextEditingController();
+  String _query = '';
   final Set<String> _depts = {}; // empty = all departments
   final Set<String> _statuses = {}; // subset of {active, inactive}; empty = all
 
@@ -31,6 +32,12 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _searchCtl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -160,27 +167,22 @@ class _EmployeeDirectoryPageState extends State<EmployeeDirectoryPage> {
     );
   }
 
+  /// Inline live search — no drawer; typing filters the directory list
+  /// directly by name, department, designation or employee ID.
   Widget _searchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
       child: SearchField(
-        hint: 'Search employees, departments, or roles...',
-        onTap: _loading ? () {} : _openPicker,
+        controller: _searchCtl,
+        hint: 'Search employees, departments, or ID...',
+        hasText: _query.isNotEmpty,
+        onChanged: (v) => setState(() => _query = v),
+        onClear: () {
+          _searchCtl.clear();
+          setState(() => _query = '');
+        },
       ),
     );
-  }
-
-  /// Open the shared employee picker (search + badges + total count) and, on
-  /// selection, go straight to that employee's profile.
-  Future<void> _openPicker() async {
-    final picked = await pickEmployee(context, _all);
-    if (picked == null || !mounted) return;
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => EmployeeDetailPage(
-        employeeId: picked.id,
-        fallbackName: picked.name,
-      ),
-    ));
   }
 
   Widget _filters() {
