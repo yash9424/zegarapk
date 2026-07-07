@@ -822,3 +822,153 @@ class FeedbackRecord {
         date: _str(j['created_at']),
       );
 }
+
+// ---- Activity logs --------------------------------------------------------
+
+String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+/// "monthly_deduction" → "Monthly Deduction".
+String _titleize(String key) =>
+    key.split('_').where((w) => w.isNotEmpty).map(_cap).join(' ');
+
+/// Money-ish log fields print with ₹; everything else prints as-is.
+String _valueLabel(String key, dynamic v) {
+  const moneyKeys = {
+    'amount', 'monthly_deduction', 'per_month_amount', 'remaining_amount',
+    'deducted_amount', 'net_salary_bank', 'net_salary_cash', 'fix_salary',
+    'daily_wages', 'gross_salary', 'salary_amount', 'total_deduction',
+  };
+  if (moneyKeys.contains(key)) return _money(v);
+  return v?.toString() ?? '';
+}
+
+/// One row from `GET /activity-logs/summary` (friendly feed) — also parses the
+/// raw `GET /activity-logs` shape. `log_name` is the module (advance / loan /
+/// salary / leave …), `event` is created / updated / deleted.
+class ActivityLog {
+  ActivityLog({
+    required this.id,
+    required this.module,
+    required this.event,
+    required this.causer,
+    required this.text,
+    required this.dateTime,
+    required this.rawDate,
+    required this.amount,
+    required this.employeeId,
+    required this.changeSummary,
+  });
+
+  final int id;
+  final String module; // advance / loan / salary / leave / deduction / ...
+  final String event; // created / updated / deleted
+  final String causer; // who performed it
+  final String text; // ready-made one-liner, e.g. "Advance Created By Admin"
+  final DateTime? dateTime; // local time
+  final String rawDate;
+  final String amount; // ₹ from properties.attributes.amount ('' if none)
+  final int employeeId; // 0 if none
+  final String changeSummary; // "Field: old → new" for updates ('' otherwise)
+
+  /// Nice module label for the UI ("advance" → "Advance").
+  String get moduleLabel => module.isEmpty ? 'Activity' : _cap(module);
+
+  /// Compact one-line detail under the title (amount / employee / change).
+  String get detail {
+    if (changeSummary.isNotEmpty) return changeSummary;
+    final bits = <String>[];
+    if (amount.isNotEmpty) bits.add(amount);
+    if (employeeId > 0) bits.add('Emp #$employeeId');
+    return bits.join(' · ');
+  }
+
+  factory ActivityLog.fromJson(Map<String, dynamic> j) {
+    final props = (j['properties'] as Map?)?.cast<String, dynamic>();
+    final attrs = (props?['attributes'] as Map?)?.cast<String, dynamic>();
+    final old = (props?['old'] as Map?)?.cast<String, dynamic>();
+
+    final module = _str(j['log_name']).trim().toLowerCase();
+    final event = _str(j['event']).trim().toLowerCase();
+
+    // `causer` is a name string on the summary feed, null / an object on raw.
+    final c = j['causer'];
+    String causer;
+    if (c is String) {
+      causer = c.trim();
+    } else if (c is Map) {
+      causer = _str(c['name']).trim();
+    } else {
+      causer = '';
+    }
+
+    // Prefer the server's one-liner; compose one when it's absent (raw feed).
+    var text = _str(j['text']).trim();
+    if (text.isEmpty) {
+      final m = module.isEmpty ? 'Record' : _cap(module);
+      final e = event.isEmpty ? 'Changed' : _cap(event);
+      text = '$m $e${causer.isEmpty ? '' : ' By $causer'}';
+    }
+
+    // "field: old → new" for updates (attributes hold only changed fields).
+    var change = '';
+    if (event == 'updated' && attrs != null) {
+      final parts = <String>[];
+      attrs.forEach((k, v) {
+        final label = _titleize(k);
+        final nv = _valueLabel(k, v);
+        final before = old?[k];
+        parts.add(before != null
+            ? '$label: ${_valueLabel(k, before)} → $nv'
+            : '$label: $nv');
+      });
+      change = parts.take(2).join(' · ');
+    }
+
+    final rawDate =
+        _str(j['date']).isNotEmpty ? _str(j['date']) : _str(j['created_at']);
+
+    return ActivityLog(
+      id: _int(j['id']),
+      module: module,
+      event: event,
+      causer: causer,
+      text: text,
+      dateTime: DateTime.tryParse(rawDate)?.toLocal(),
+      rawDate: rawDate,
+      amount: attrs?['amount'] == null ? '' : _money(attrs!['amount']),
+      employeeId: _int(attrs?['employee_id']),
+      changeSummary: change,
+    );
+  }
+}
+
+/// A page of activity-log rows plus its pagination info
+/// (`GET /activity-logs/summary` returns a Laravel paginator).
+class ActivityLogPage {
+  ActivityLogPage({
+    required this.items,
+    required this.currentPage,
+    required this.lastPage,
+    required this.total,
+  });
+
+  final List<ActivityLog> items;
+  final int currentPage;
+  final int lastPage;
+  final int total;
+
+  bool get hasMore => currentPage < lastPage;
+
+  factory ActivityLogPage.fromJson(Map<String, dynamic> j) {
+    final rows = (j['data'] as List?) ?? const [];
+    return ActivityLogPage(
+      items: rows
+          .whereType<Map>()
+          .map((e) => ActivityLog.fromJson(e.cast<String, dynamic>()))
+          .toList(),
+      currentPage: _int(j['current_page']),
+      lastPage: _int(j['last_page']),
+      total: _int(j['total']),
+    );
+  }
+}

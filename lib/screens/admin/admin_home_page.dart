@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../models/api_models.dart';
 import '../../services/mock_auth.dart';
 import '../../services/zedgift_api.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/admin_bottom_nav.dart';
 import '../../widgets/app_header.dart';
+import 'activity_logs_page.dart';
 import 'employee_directory_page.dart';
 import 'leave_requests_page.dart';
 import 'salary_page.dart';
@@ -28,6 +30,11 @@ class _AdminHomePageState extends State<AdminHomePage>
   int? _onLeave;
   int? _advances;
   String? _payroll;
+
+  // Recent activity feed (latest 5 from GET /activity-logs/summary).
+  List<ActivityLog> _recent = const [];
+  bool _recentLoading = true;
+  bool _recentError = false;
 
   // Drives the staggered entrance of the menu list.
   late final AnimationController _intro = AnimationController(
@@ -66,6 +73,10 @@ class _AdminHomePageState extends State<AdminHomePage>
   }
 
   Future<void> _load() async {
+    await Future.wait([_loadStats(), _loadRecent()]);
+  }
+
+  Future<void> _loadStats() async {
     try {
       final s = await ZedgiftApi.instance.dashboardStats();
       if (mounted) {
@@ -90,6 +101,25 @@ class _AdminHomePageState extends State<AdminHomePage>
     } catch (_) {}
   }
 
+  Future<void> _loadRecent() async {
+    if (mounted) setState(() => _recentLoading = true);
+    try {
+      final res = await ZedgiftApi.instance.activityLogs(page: 1);
+      if (!mounted) return;
+      setState(() {
+        _recent = res.items.take(5).toList();
+        _recentLoading = false;
+        _recentError = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _recentLoading = false;
+        _recentError = true;
+      });
+    }
+  }
+
   String get _dayName {
     final n = DateTime.now();
     return _weekdays[n.weekday - 1];
@@ -111,17 +141,23 @@ class _AdminHomePageState extends State<AdminHomePage>
             onLeadingTap: () => Scaffold.of(context).openDrawer(),
           ),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-              child: Column(
-                children: [
-                  _greeting(),
-                  const SizedBox(height: 14),
-                  _statsRow(),
-                  const SizedBox(height: 20),
-                  // Grid fills the remaining vertical space.
-                  Expanded(child: _menuGrid(context)),
-                ],
+            child: RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: _load,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                child: Column(
+                  children: [
+                    _greeting(),
+                    const SizedBox(height: 14),
+                    _statsRow(),
+                    const SizedBox(height: 20),
+                    _menuGrid(context),
+                    const SizedBox(height: 22),
+                    _activitySection(context),
+                  ],
+                ),
               ),
             ),
           ),
@@ -466,6 +502,149 @@ class _AdminHomePageState extends State<AdminHomePage>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ---- Recent activity -----------------------------------------------------
+
+  Widget _activitySection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: _blue.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(Icons.history_rounded, color: _blue, size: 19),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Recent Activity',
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: 1),
+                  Text(
+                    "Today's latest changes",
+                    style:
+                        TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            _viewAllButton(context),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _activityBody(),
+      ],
+    );
+  }
+
+  Widget _viewAllButton(BuildContext context) {
+    return Material(
+      color: AppColors.softRedTint,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => const ActivityLogsPage())),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'View All',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+              SizedBox(width: 3),
+              Icon(Icons.arrow_forward_rounded,
+                  size: 15, color: AppColors.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _activityBody() {
+    if (_recentLoading) {
+      return Container(
+        height: 96,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+              strokeWidth: 2.4, color: AppColors.primary),
+        ),
+      );
+    }
+    if (_recentError) {
+      return _activityPlaceholder(
+        Icons.cloud_off_rounded,
+        'Could not load activity.',
+        action: TextButton(
+          onPressed: _loadRecent,
+          child: const Text('Retry'),
+        ),
+      );
+    }
+    if (_recent.isEmpty) {
+      return _activityPlaceholder(
+        Icons.history_toggle_off_rounded,
+        'No recent activity.',
+      );
+    }
+    return Column(
+      children: [
+        for (var i = 0; i < _recent.length; i++) ...[
+          ActivityLogCard(log: _recent[i]),
+          if (i != _recent.length - 1) const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+
+  Widget _activityPlaceholder(IconData icon, String text, {Widget? action}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 34, color: AppColors.textMuted),
+          const SizedBox(height: 8),
+          Text(text,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          ?action,
+        ],
       ),
     );
   }

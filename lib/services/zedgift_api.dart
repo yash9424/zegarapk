@@ -27,6 +27,17 @@ class ZedgiftApi {
     return DashboardStats.fromJson((data as Map).cast<String, dynamic>());
   }
 
+  // ---- Activity logs -----------------------------------------------------
+
+  /// A page of the recent activity feed (`GET /activity-logs/summary`) — the
+  /// server returns friendly one-line rows (created / updated / deleted across
+  /// advances, loans, salary, leaves …), 10 per page. [page] selects the page.
+  Future<ActivityLogPage> activityLogs({int page = 1}) async {
+    final data =
+        await _c.get('activity-logs/summary', query: {'page': page});
+    return ActivityLogPage.fromJson((data as Map).cast<String, dynamic>());
+  }
+
   // ---- Employees ---------------------------------------------------------
 
   Future<List<EmployeeListItem>> employees() async {
