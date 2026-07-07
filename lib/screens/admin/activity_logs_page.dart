@@ -223,7 +223,6 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
   final List<ActivityLog> _all = [];
   int _page = 1;
   int _lastPage = 1;
-  int _total = 0;
 
   bool _loading = true;
   bool _loadingMore = false;
@@ -231,6 +230,7 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
 
   String? _filter; // null = All
   String _q = '';
+  DateTime? _dateFilter; // null = any day
 
   // (label, module-key-or-null, icon, colour)
   static const _chips = <(String, String?, IconData, Color)>[
@@ -277,7 +277,6 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
           ..addAll(res.items);
         _page = res.currentPage;
         _lastPage = res.lastPage;
-        _total = res.total;
         _loading = false;
       });
     } catch (_) {
@@ -310,14 +309,41 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
 
   List<ActivityLog> get _filtered {
     final q = _q.trim().toLowerCase();
+    final d = _dateFilter;
     return _all.where((l) {
       if (_filter != null && l.module != _filter) return false;
+      if (d != null) {
+        final t = l.dateTime;
+        if (t == null ||
+            t.year != d.year ||
+            t.month != d.month ||
+            t.day != d.day) {
+          return false;
+        }
+      }
       if (q.isEmpty) return true;
       return l.text.toLowerCase().contains(q) ||
           l.causer.toLowerCase().contains(q) ||
           l.module.toLowerCase().contains(q) ||
           l.detail.toLowerCase().contains(q);
     }).toList();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dateFilter ?? now,
+      firstDate: DateTime(now.year - 2),
+      lastDate: now,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(primary: AppColors.primary),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _dateFilter = picked);
   }
 
   @override
@@ -375,23 +401,56 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
               ],
             ),
           ),
-          if (_total > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.softRedTint,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '$_total total',
-                style: const TextStyle(
+          _dateButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _dateButton() {
+    final has = _dateFilter != null;
+    final label = has
+        ? '${_dateFilter!.day} ${_monthsShort[_dateFilter!.month - 1]}'
+        : 'Date';
+    return Material(
+      color: has ? AppColors.primary : AppColors.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: _pickDate,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: has ? AppColors.primary : AppColors.fieldBorder,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.event_rounded,
+                  size: 16, color: has ? Colors.white : AppColors.primary),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
+                  color: has ? Colors.white : AppColors.textSecondary,
                 ),
               ),
-            ),
-        ],
+              if (has) ...[
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: () => setState(() => _dateFilter = null),
+                  child: const Icon(Icons.close_rounded,
+                      size: 15, color: Colors.white),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -574,7 +633,10 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
         ),
       );
     }
-    if (_page >= _lastPage && _filter == null && _q.isEmpty) {
+    if (_page >= _lastPage &&
+        _filter == null &&
+        _q.isEmpty &&
+        _dateFilter == null) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Center(
