@@ -264,14 +264,17 @@ class _AdminHomePageState extends State<AdminHomePage>
   // ---- Stats row -----------------------------------------------------------
 
   Widget _statsRow() {
+    // Colours stay consistent per concept across the stat row, menu grid and
+    // activity feed: Employees = red, Leave = purple, Advance = orange,
+    // Payroll/Salary = violet.
     final stats = <(IconData, Color, String, String)>[
       (Icons.groups_2_rounded, _red, _employees?.toString() ?? '0',
           'Employees'),
       (Icons.calendar_month_rounded, _purple, _onLeave?.toString() ?? '0',
           'On Leave'),
-      (Icons.account_balance_wallet_rounded, _green, _advances?.toString() ?? '0',
-          'Advances'),
-      (Icons.payments_rounded, _orange, _payroll ?? '₹0', 'Total Payroll'),
+      (Icons.account_balance_wallet_rounded, _orange,
+          _advances?.toString() ?? '0', 'Advances'),
+      (Icons.payments_rounded, _violet, _payroll ?? '₹0', 'Total Payroll'),
     ];
     return Row(
       children: [
@@ -622,8 +625,8 @@ class _AdminHomePageState extends State<AdminHomePage>
     return Column(
       children: [
         for (var i = 0; i < _recent.length; i++) ...[
-          ActivityLogCard(log: _recent[i]),
-          if (i != _recent.length - 1) const SizedBox(height: 10),
+          ActivityLogCard(log: _recent[i], compact: true),
+          if (i != _recent.length - 1) const SizedBox(height: 8),
         ],
       ],
     );
